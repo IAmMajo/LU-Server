@@ -164,7 +164,7 @@ std::string UserManager::GetPredefinedName ( uint32_t firstNameIndex, uint32_t m
 }
 
 bool UserManager::IsNamePreapproved ( const std::string& requestedName ) {
-	for (std::string& s : m_PreapprovedNames) {
+	/* for (std::string& s : m_PreapprovedNames) {
 		if (s == requestedName) return true;
 	}
 	
@@ -180,7 +180,9 @@ bool UserManager::IsNamePreapproved ( const std::string& requestedName ) {
 		if (s == requestedName) return true;
 	}
 	
-	return false;
+	return false; */
+
+	return true;
 }
 
 void UserManager::RequestCharacterList ( const SystemAddress& sysAddr ) {
