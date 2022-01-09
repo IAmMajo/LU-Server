@@ -102,7 +102,7 @@ void dChatFilter::ExportWordlistToDCF(const std::string& filepath) {
 }
 
 bool dChatFilter::IsSentenceOkay(const std::string& message, int gmLevel) {
-	if (gmLevel > GAME_MASTER_LEVEL_FORUM_MODERATOR) return true; //If anything but a forum mod, return true.
+	/* if (gmLevel > GAME_MASTER_LEVEL_FORUM_MODERATOR) return true; //If anything but a forum mod, return true.
 	if (message.empty()) return true;
 
 	std::stringstream sMessage(message);
@@ -123,7 +123,7 @@ bool dChatFilter::IsSentenceOkay(const std::string& message, int gmLevel) {
 			m_UserUnapprovedWordCache.push_back(hash);
 			return false;
 		}
-	}
+	} */
 
 	return true;
 }
