@@ -274,7 +274,7 @@ void PropertyManagementComponent::OnFinishBuilding()
 
 	SetPrivacyOption(originalPrivacyOption);
 
-	UpdateApprovedStatus(false);
+	// UpdateApprovedStatus(false);
 }
 
 void PropertyManagementComponent::UpdateModelPosition(const LWOOBJID id, const NiPoint3 position, NiQuaternion rotation)
