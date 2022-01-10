@@ -120,7 +120,7 @@ void SbLupTeleport::OnStartup(Entity* self)
         AMFArrayValue* nsArgs = new AMFArrayValue();
 
         AMFStringValue* image = new AMFStringValue();
-        image->SetStringValue("textures/ui/zone_thumnails/Deep_Freeze.dds");
+        image->SetStringValue("textures/ui/zone_thumnails/Frost_Burgh.dds");
         nsArgs->InsertValue("image", image);
 
         AMFStringValue* caption = new AMFStringValue();
