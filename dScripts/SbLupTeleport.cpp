@@ -124,15 +124,15 @@ void SbLupTeleport::OnStartup(Entity* self)
         nsArgs->InsertValue("image", image);
 
         AMFStringValue* caption = new AMFStringValue();
-        caption->SetStringValue("%[ZoneTable_98_DisplayDescription]");
+        caption->SetStringValue("%[ZoneTable_1260_DisplayDescription]");
         nsArgs->InsertValue("caption", caption);
 
         AMFStringValue* identifier = new AMFStringValue();
-        identifier->SetStringValue("zoneID_98");
+        identifier->SetStringValue("zoneID_1260");
         nsArgs->InsertValue("identifier", identifier);
 
         AMFStringValue* tooltipText = new AMFStringValue();
-        tooltipText->SetStringValue("%[ZoneTable_98_summary]");
+        tooltipText->SetStringValue("%[ZoneTable_1260_summary]");
         nsArgs->InsertValue("tooltipText", tooltipText);
 
         choiceOptions->PushBackValue(nsArgs);
