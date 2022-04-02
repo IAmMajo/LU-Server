@@ -167,7 +167,8 @@ void PropertyManagementComponent::SetPrivacyOption(PropertyPrivacyOption value)
 
 	propertyUpdate->setInt(1, static_cast<int32_t>(value));
 	propertyUpdate->setString(2, "");
-	propertyUpdate->setInt(3, 0);
+	// propertyUpdate->setInt(3, 0);
+	propertyUpdate->setInt(3, 1);
 	propertyUpdate->setInt64(4, propertyId);
 
 	propertyUpdate->executeUpdate();
