@@ -1,5 +1,6 @@
 #include "ChooseYourDestinationNsToNt.h"
 #include "Character.h"
+#include "CharacterComponent.h"
 #include "GameMessages.h"
 #include "dZoneManager.h"
 #include "EntityManager.h"
@@ -73,5 +74,7 @@ void ChooseYourDestinationNsToNt::BaseChoiceBoxRespond(Entity* self, Entity* sen
     else
     {
         GameMessages::SendTerminateInteraction(sender->GetObjectID(), FROM_INTERACTION, self->GetObjectID());
+
+        sender->GetComponent<CharacterComponent>()->RocketUnEquip(sender);
     }
 }

@@ -1,4 +1,5 @@
 #include "BaseConsoleTeleportServer.h"
+#include "CharacterComponent.h"
 #include "GameMessages.h"
 #include "Player.h"
 #include "RocketLaunchpadControlComponent.h"
@@ -78,6 +79,8 @@ void BaseConsoleTeleportServer::BaseOnMessageBoxResponse(Entity* self, Entity* s
     else if (button == -1 || button == 0)
     {
         GameMessages::SendTerminateInteraction(player->GetObjectID(), FROM_INTERACTION, player->GetObjectID());
+
+        player->GetComponent<CharacterComponent>()->RocketUnEquip(player);
     }
 }
 
