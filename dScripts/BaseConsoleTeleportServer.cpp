@@ -30,7 +30,7 @@ void BaseConsoleTeleportServer::BaseOnMessageBoxResponse(Entity* self, Entity* s
 
             const auto& teleportZone = self->GetVar<std::u16string>(u"transferZoneID");
 
-            rocketLaunchComponent->Launch(player, LWOOBJID_EMPTY, std::stoi(GeneralUtils::UTF16ToWTF8(teleportZone)));
+            rocketLaunchComponent->Launch(player, std::stoi(GeneralUtils::UTF16ToWTF8(teleportZone)));
 
             return;
         }
