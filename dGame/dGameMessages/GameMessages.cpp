@@ -26,7 +26,6 @@
 #include "TeamManager.h"
 #include "ChatPackets.h"
 #include "GameConfig.h"
-#include "RocketLaunchLupComponent.h"
 
 #include <sstream>
 #include <future>
@@ -2727,15 +2726,10 @@ void GameMessages::HandleEnterProperty(RakNet::BitStream* inStream, Entity* enti
 	auto* player = Player::GetPlayer(sysAddr);
 
 	auto* entranceComponent = entity->GetComponent<PropertyEntranceComponent>();
-	if (entranceComponent != nullptr) {
-		entranceComponent->OnEnterProperty(player, index, returnToZone, sysAddr);
-		return;
-	}
 
-	auto rocketLaunchLupComponent = entity->GetComponent<RocketLaunchLupComponent>();
-	if (rocketLaunchLupComponent != nullptr) {
-		rocketLaunchLupComponent->OnSelectWorld(player, index);
-	}
+	if (entranceComponent == nullptr) return;
+
+	entranceComponent->OnEnterProperty(player, index, returnToZone, sysAddr);
 }
 
 void GameMessages::HandleSetConsumableItem(RakNet::BitStream* inStream, Entity* entity, const SystemAddress& sysAddr) 

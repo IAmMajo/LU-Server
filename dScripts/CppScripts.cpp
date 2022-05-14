@@ -203,6 +203,7 @@
 #include "NtSleepingGuard.h"
 
 // DLU Scripts
+#include "SbLupTeleport.h"
 #include "DLUVanityNPC.h"
 
 // AM Scripts
@@ -769,6 +770,8 @@ CppScripts::Script* CppScripts::GetScript(Entity* parent, const std::string& scr
 	    script = new NjNyaMissionitems();
 
 	//DLU:
+	else if (scriptName == "scripts\\02_server\\DLU\\L_SB_LUP_TELEPORT.lua")
+		script = new SbLupTeleport();
 	else if (scriptName == "scripts\\02_server\\DLU\\DLUVanityNPC.lua")
 		script = new DLUVanityNPC();
 
