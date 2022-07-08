@@ -2,6 +2,7 @@
 #include "CharacterComponent.h"
 #include "GameMessages.h"
 #include "Player.h"
+#include "RocketLaunchpadControlComponent.h"
 
 void BaseConsoleTeleportServer::BaseOnUse(Entity* self, Entity* user) 
 {
