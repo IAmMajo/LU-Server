@@ -2,8 +2,6 @@
 #include "Character.h"
 #include "CharacterComponent.h"
 #include "GameMessages.h"
-#include "dZoneManager.h"
-#include "EntityManager.h"
 
 bool ChooseYourDestinationNsToNt::CheckChoice(Entity* self, Entity* player)
 {
