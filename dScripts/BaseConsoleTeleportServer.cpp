@@ -1,8 +1,6 @@
 #include "BaseConsoleTeleportServer.h"
-#include "CharacterComponent.h"
 #include "GameMessages.h"
 #include "Player.h"
-#include "RocketLaunchpadControlComponent.h"
 
 void BaseConsoleTeleportServer::BaseOnUse(Entity* self, Entity* user) {
 	auto* player = user;
@@ -16,21 +14,6 @@ void BaseConsoleTeleportServer::BaseOnMessageBoxResponse(Entity* self, Entity* s
 	auto* player = sender;
 
 	if (button == 1) {
-        if (self->GetLOT() == 14333)
-        {
-            auto* rocketLaunchComponent = self->GetComponent<RocketLaunchpadControlComponent>();
-
-            if (rocketLaunchComponent == nullptr)
-            {
-                return;
-            }
-
-            const auto& teleportZone = self->GetVar<std::u16string>(u"transferZoneID");
-
-            rocketLaunchComponent->Launch(player, std::stoi(GeneralUtils::UTF16ToWTF8(teleportZone)));
-
-            return;
-        }
 
 		GameMessages::SendSetStunned(player->GetObjectID(), PUSH, player->GetSystemAddress(), player->GetObjectID(),
 			true, true, true, true, true, true, true
@@ -69,8 +52,6 @@ void BaseConsoleTeleportServer::BaseOnMessageBoxResponse(Entity* self, Entity* s
 			});
 	} else if (button == -1 || button == 0) {
 		GameMessages::SendTerminateInteraction(player->GetObjectID(), FROM_INTERACTION, player->GetObjectID());
-
-        player->GetComponent<CharacterComponent>()->RocketUnEquip(player);
 	}
 }
 

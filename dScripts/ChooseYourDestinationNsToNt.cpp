@@ -1,6 +1,5 @@
 #include "ChooseYourDestinationNsToNt.h"
 #include "Character.h"
-#include "CharacterComponent.h"
 #include "GameMessages.h"
 
 bool ChooseYourDestinationNsToNt::CheckChoice(Entity* self, Entity* player) {
@@ -51,9 +50,9 @@ void ChooseYourDestinationNsToNt::BaseChoiceBoxRespond(Entity* self, Entity* sen
 
 		if (newMap == 1200) {
 			strText = u"UI_TRAVEL_TO_NS";
-		} else if (newMap == 1900) {
+		} else {
 			strText = u"UI_TRAVEL_TO_NEXUS_TOWER";
-		} else strText = u"ZoneTable_" + GeneralUtils::to_u16string(newMap) + u"_DisplayDescription";
+		}
 
 		self->SetVar(u"teleportString", strText);
 		self->SetVar(u"transferZoneID", GeneralUtils::to_u16string(newMap));
@@ -61,7 +60,5 @@ void ChooseYourDestinationNsToNt::BaseChoiceBoxRespond(Entity* self, Entity* sen
 		GameMessages::SendDisplayMessageBox(sender->GetObjectID(), true, self->GetObjectID(), u"TransferBox", 0, strText, u"", sender->GetSystemAddress());
 	} else {
 		GameMessages::SendTerminateInteraction(sender->GetObjectID(), FROM_INTERACTION, self->GetObjectID());
-
-        sender->GetComponent<CharacterComponent>()->RocketUnEquip(sender);
 	}
 }

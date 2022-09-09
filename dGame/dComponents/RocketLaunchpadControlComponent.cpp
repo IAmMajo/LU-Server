@@ -13,7 +13,7 @@
 #include "ChatPackets.h"
 #include "MissionComponent.h"
 #include "PropertyEntranceComponent.h"
-// #include "RocketLaunchLupComponent.h"
+#include "RocketLaunchLupComponent.h"
 #include "dServer.h"
 #include "dMessageIdentifiers.h"
 #include "PacketUtils.h"
@@ -92,10 +92,10 @@ void RocketLaunchpadControlComponent::OnUse(Entity* originator) {
 		return;
 	}
 
-	/* auto* rocketLaunchLUP = m_Parent->GetComponent<RocketLaunchLupComponent>();
+	auto* rocketLaunchLUP = m_Parent->GetComponent<RocketLaunchLupComponent>();
 	if (rocketLaunchLUP) {
 		return;
-	} */
+	}
 
 	// No rocket no launch
 	auto* rocket = originator->GetComponent<CharacterComponent>()->RocketEquip(originator);
