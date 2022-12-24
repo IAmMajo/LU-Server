@@ -27,8 +27,9 @@
 #include "dConfig.h"
 #include "eItemType.h"
 #include "eUnequippableActiveType.h"
+#include "CppScripts.h"
 
-InventoryComponent::InventoryComponent(Entity* parent, tinyxml2::XMLDocument* document) : Component(parent) {
+InventoryComponent::InventoryComponent(Entity* parent, tinyxml2::XMLDocument* document): Component(parent) {
 	this->m_Dirty = true;
 	this->m_Equipped = {};
 	this->m_Pushed = {};
@@ -209,9 +210,11 @@ void InventoryComponent::AddItem(
 
 	auto stack = static_cast<uint32_t>(info.stackSize);
 
+	bool isBrick = inventoryType == eInventoryType::BRICKS || (stack == 0 && info.itemType == 1);
+
 	// info.itemType of 1 is item type brick
-	if (inventoryType == eInventoryType::BRICKS || (stack == 0 && info.itemType == 1)) {
-		stack = 999;
+	if (isBrick) {
+		stack = UINT32_MAX;
 	} else if (stack == 0) {
 		stack = 1;
 	}
@@ -232,7 +235,8 @@ void InventoryComponent::AddItem(
 		}
 	}
 
-	while (left > 0) {
+	// If we have some leftover and we aren't bricks, make a new stack
+	while (left > 0 && (!isBrick || (isBrick && !existing))) {
 		const auto size = std::min(left, stack);
 
 		left -= size;
@@ -327,7 +331,9 @@ void InventoryComponent::MoveItemToInventory(Item* item, const eInventoryType in
 
 	const auto lot = item->GetLot();
 
-	if (item->GetConfig().empty() && !item->GetBound() || (item->GetBound() && item->GetInfo().isBOP)) {
+	const auto subkey = item->GetSubKey();
+
+	if (subkey == LWOOBJID_EMPTY && item->GetConfig().empty() && (!item->GetBound() || (item->GetBound() && item->GetInfo().isBOP))) {
 		auto left = std::min<uint32_t>(count, origin->GetLotCount(lot));
 
 		while (left > 0) {
@@ -358,7 +364,7 @@ void InventoryComponent::MoveItemToInventory(Item* item, const eInventoryType in
 
 		const auto delta = std::min<uint32_t>(item->GetCount(), count);
 
-		AddItem(lot, delta, eLootSourceType::LOOT_SOURCE_NONE, inventory, config, LWOOBJID_EMPTY, showFlyingLot, isModMoveAndEquip, LWOOBJID_EMPTY, origin->GetType(), 0, item->GetBound(), preferredSlot);
+		AddItem(lot, delta, eLootSourceType::LOOT_SOURCE_NONE, inventory, config, LWOOBJID_EMPTY, showFlyingLot, isModMoveAndEquip, subkey, origin->GetType(), 0, item->GetBound(), preferredSlot);
 
 		item->SetCount(item->GetCount() - delta, false, false);
 	}
@@ -605,16 +611,17 @@ void InventoryComponent::UpdateXml(tinyxml2::XMLDocument* document) {
 		return;
 	}
 
-	std::vector<Inventory*> inventories;
+	std::vector<Inventory*> inventoriesToSave;
 
+	// Need to prevent some transfer inventories from being saved
 	for (const auto& pair : this->m_Inventories) {
 		auto* inventory = pair.second;
 
-		if (inventory->GetType() == VENDOR_BUYBACK) {
+		if (inventory->GetType() == VENDOR_BUYBACK || inventory->GetType() == eInventoryType::MODELS_IN_BBB) {
 			continue;
 		}
 
-		inventories.push_back(inventory);
+		inventoriesToSave.push_back(inventory);
 	}
 
 	inventoryElement->SetAttribute("csl", m_Consumable);
@@ -629,7 +636,7 @@ void InventoryComponent::UpdateXml(tinyxml2::XMLDocument* document) {
 
 	bags->DeleteChildren();
 
-	for (const auto* inventory : inventories) {
+	for (const auto* inventory : inventoriesToSave) {
 		auto* bag = document->NewElement("b");
 
 		bag->SetAttribute("t", inventory->GetType());
@@ -648,7 +655,7 @@ void InventoryComponent::UpdateXml(tinyxml2::XMLDocument* document) {
 
 	items->DeleteChildren();
 
-	for (auto* inventory : inventories) {
+	for (auto* inventory : inventoriesToSave) {
 		if (inventory->GetSize() == 0) {
 			continue;
 		}
@@ -861,6 +868,8 @@ void InventoryComponent::EquipItem(Item* item, const bool skipChecks) {
 
 	AddItemSkills(item->GetLot());
 
+	EquipScripts(item);
+
 	EntityManager::Instance()->SerializeEntity(m_Parent);
 }
 
@@ -889,12 +898,45 @@ void InventoryComponent::UnEquipItem(Item* item) {
 
 	PurgeProxies(item);
 
+	UnequipScripts(item);
+
 	EntityManager::Instance()->SerializeEntity(m_Parent);
 
 	// Trigger property event
 	if (PropertyManagementComponent::Instance() != nullptr && item->GetCount() > 0 && Inventory::FindInventoryTypeForLot(item->GetLot()) == MODELS) {
 		PropertyManagementComponent::Instance()->GetParent()->OnZonePropertyModelRemovedWhileEquipped(m_Parent);
 		dZoneManager::Instance()->GetZoneControlObject()->OnZonePropertyModelRemovedWhileEquipped(m_Parent);
+	}
+}
+
+
+void InventoryComponent::EquipScripts(Item* equippedItem) {
+	CDComponentsRegistryTable* compRegistryTable = CDClientManager::Instance()->GetTable<CDComponentsRegistryTable>("ComponentsRegistry");
+	if (!compRegistryTable) return;
+	int32_t scriptComponentID = compRegistryTable->GetByIDAndType(equippedItem->GetLot(), COMPONENT_TYPE_SCRIPT, -1);
+	if (scriptComponentID > -1) {
+		CDScriptComponentTable* scriptCompTable = CDClientManager::Instance()->GetTable<CDScriptComponentTable>("ScriptComponent");
+		CDScriptComponent scriptCompData = scriptCompTable->GetByID(scriptComponentID);
+		auto* itemScript = CppScripts::GetScript(m_Parent, scriptCompData.script_name);
+		if (!itemScript) {
+			Game::logger->Log("InventoryComponent", "null script?");
+		}
+		itemScript->OnFactionTriggerItemEquipped(m_Parent, equippedItem->GetId());
+	}
+}
+
+void InventoryComponent::UnequipScripts(Item* unequippedItem) {
+	CDComponentsRegistryTable* compRegistryTable = CDClientManager::Instance()->GetTable<CDComponentsRegistryTable>("ComponentsRegistry");
+	if (!compRegistryTable) return;
+	int32_t scriptComponentID = compRegistryTable->GetByIDAndType(unequippedItem->GetLot(), COMPONENT_TYPE_SCRIPT, -1);
+	if (scriptComponentID > -1) {
+		CDScriptComponentTable* scriptCompTable = CDClientManager::Instance()->GetTable<CDScriptComponentTable>("ScriptComponent");
+		CDScriptComponent scriptCompData = scriptCompTable->GetByID(scriptComponentID);
+		auto* itemScript = CppScripts::GetScript(m_Parent, scriptCompData.script_name);
+		if (!itemScript) {
+			Game::logger->Log("InventoryComponent", "null script?");
+		}
+		itemScript->OnFactionTriggerItemUnequipped(m_Parent, unequippedItem->GetId());
 	}
 }
 
@@ -985,6 +1027,7 @@ void InventoryComponent::ApplyBuff(Item* item) const {
 	}
 }
 
+// TODO Something needs to send the remove buff GameMessage as well when it is unequipping items that would remove buffs.
 void InventoryComponent::RemoveBuff(Item* item) const {
 	const auto buffs = FindBuffs(item, false);
 
@@ -1153,9 +1196,9 @@ void InventoryComponent::RemoveItemSkills(const LOT lot) {
 	}
 }
 
-void InventoryComponent::TriggerPassiveAbility(PassiveAbilityTrigger trigger) {
+void InventoryComponent::TriggerPassiveAbility(PassiveAbilityTrigger trigger, Entity* target) {
 	for (auto* set : m_Itemsets) {
-		set->TriggerPassiveAbility(trigger);
+		set->TriggerPassiveAbility(trigger, target);
 	}
 }
 
@@ -1258,7 +1301,7 @@ BehaviorSlot InventoryComponent::FindBehaviorSlot(const eItemType type) {
 }
 
 bool InventoryComponent::IsTransferInventory(eInventoryType type) {
-	return type == VENDOR_BUYBACK || type == VAULT_ITEMS || type == VAULT_MODELS || type == TEMP_ITEMS || type == TEMP_MODELS;
+	return type == VENDOR_BUYBACK || type == VAULT_ITEMS || type == VAULT_MODELS || type == TEMP_ITEMS || type == TEMP_MODELS || type == MODELS_IN_BBB;
 }
 
 uint32_t InventoryComponent::FindSkill(const LOT lot) {

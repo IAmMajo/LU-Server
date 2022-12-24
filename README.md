@@ -38,9 +38,13 @@ Some tools utilized to streamline the setup process require Python 3, make sure 
 
 ### Choosing the right version for your client
 DLU clients identify themselves using a higher version number than the regular live clients out there.
-This was done make sure that older and incomplete clients wouldn't produce false positive bug reports for us, and because we made bug fixes and new content for the client. 
+This was done make sure that older and incomplete clients wouldn't produce false positive bug reports for us, and because we made bug fixes and new content for the client.
 
 If you're using a DLU client you'll have to go into the "CMakeVariables.txt" file and change the NET_VERSION variable to 171023 to match the modified client's version number.
+
+### Enabling testing
+While it is highly recommended to enable testing, if you would like to save compilation time, you'll want to comment out the enable_testing variable in CMakeVariables.txt.
+It is recommended that after building and if testing is enabled, to run `ctest` and make sure all the tests pass.
 
 ### Using Docker
 Refer to [Docker.md](/Docker.md).
@@ -169,7 +173,7 @@ Known good SHA256 checksums of the client:
 - `0d862f71eedcadc4494c4358261669721b40b2131101cbd6ef476c5a6ec6775b` (unpacked client, includes extra locales, rar compressed)
 
 Known good *SHA1* checksum of the DLU client:
-- `91498e09b83ce69f46baf9e521d48f23fe502985` (packed client, zip compressed) 
+- `91498e09b83ce69f46baf9e521d48f23fe502985` (packed client, zip compressed)
 
 How to generate a SHA256 checksum:
 ```bash
@@ -196,23 +200,25 @@ certutil -hashfile <file> SHA256
 * Copy over or create symlinks from `locale.xml` in your client `locale` directory to the `build/locale` directory
 
 #### Client database
-* Use `fdb_to_sqlite.py` in lcdr's utilities on `res/cdclient.fdb` in the unpacked client to convert the client database to `cdclient.sqlite`
-* Move and rename `cdclient.sqlite` into `build/res/CDServer.sqlite`
-* Run each SQL file in the order at which they appear [here](migrations/cdserver/) on the SQLite database
+* Move the file `res/cdclient.fdb` from the unpacked client to the `build/res` folder on the server.
+* The server will automatically copy and convert the file from fdb to sqlite should `CDServer.sqlite` not already exist.
+* You can also convert the database manually using `fdb_to_sqlite.py` using lcdr's utilities.  Just make sure to rename the file to `CDServer.sqlite` instead of `cdclient.sqlite`.
+* Migrations to the database are automatically run on server start.  When migrations are needed to be ran, the server may take a bit longer to start.
 
 ### Database
 Darkflame Universe utilizes a MySQL/MariaDB database for account and character information.
 
 Initial setup can vary drastically based on which operating system or distribution you are running; there are instructions out there for most setups, follow those and come back here when you have a database up and running.
-* Create a database for Darkflame Universe to use
+
+* All that you need to do is create a database to connect to.  As long as the server can connect to the database, the schema will always be kept up to date when you start the server.
 
 #### Configuration
 
-After the server has been built there should be four `ini` files in the build director: `authconfig.ini`, `chatconfig.ini`, `masterconfig.ini`, and `worldconfig.ini`. Go through them and fill in the database credentials and configure other settings if necessary.
+After the server has been built there should be four `ini` files in the build director: `sharedconfig.ini`, `authconfig.ini`, `chatconfig.ini`, `masterconfig.ini`, and `worldconfig.ini`. Go through them and fill in the database credentials and configure other settings if necessary.
 
-#### Setup and Migrations
+#### Migrations
 
-Use the command `./MasterServer -m` to setup the tables in the database. The first time this command is run on a database, the tables will be up to date with the most recent version. To update your database tables, run this command again. Multiple invocations will not affect any functionality.
+The database is automatically setup and migrated to what it should look like for the latest commit whenever you start the server.
 
 #### Verify
 
@@ -228,7 +234,7 @@ Your build directory should now look like this:
 * **locale/**
   * locale.xml
 * **res/**
-  * CDServer.sqlite
+  * cdclient.fdb
   * chatplus_en_us.txt
   * **macros/**
     * ...
@@ -266,16 +272,6 @@ To connect to a server follow these steps:
 * Replace the contents after to `:` and the following `,` with what you configured as the server's public facing IP. For example `AUTHSERVERIP=0:localhost` for locally hosted servers
 * Launch `legouniverse.exe`, through `wine` if on a Unix-like operating system
 * Note that if you are on WSL2, you will need to configure the public IP in the server and client to be the IP of the WSL2 instance and not localhost, which can be found by running `ifconfig` in the terminal. Windows defaults to WSL1, so this will not apply to most users.
-
-### Survival
-
-The client script for the survival minigame has a bug in it which can cause the minigame to not load. To fix this, follow these instructions:
-* Open `res/scripts/ai/minigame/survival/l_zone_survival_client.lua`
-* Navigate to line `617`
-* Change `PlayerReady(self)` to `onPlayerReady(self)`
-* Save the file, overriding readonly mode if required
-
-If you still experience the bug, try deleting/renaming `res/pack/scripts.pk`.
 
 ### Brick-By-Brick building
 
@@ -334,7 +330,7 @@ Here is a summary of the commands available in-game. All commands are prefixed b
       /instanceinfo
     </td>
     <td>
-      Displays in the chat the current zone, clone, and instance id. 
+      Displays in the chat the current zone, clone, and instance id.
     </td>
     <td>
     </td>
@@ -426,11 +422,6 @@ Here is a summary of the commands available in-game. All commands are prefixed b
 </table>
 
 # Credits
-## Active Contributors
-* [EmosewaMC](https://github.com/EmosewaMC)
-* [Jettford](https://github.com/Jettford)
-* [Aaron K.](https://github.com/aronwk-aaron)
-
 ## DLU Team
 * [DarwinAnim8or](https://github.com/DarwinAnim8or)
 * [Wincent01](https://github.com/Wincent01)
@@ -438,25 +429,30 @@ Here is a summary of the commands available in-game. All commands are prefixed b
 * [averysumner](https://github.com/codeshaunted)
 * [Jon002](https://github.com/jaller200)
 * [Jonny](https://github.com/cuzitsjonny)
+* [Aaron K.](https://github.com/aronwk-aaron)
 
-### Research and tools
+### Research and Tools
 * [lcdr](https://github.com/lcdr)
 * [Xiphoseer](https://github.com/Xiphoseer)
 
-### Community management
+### Community Management
 * [Neal](https://github.com/NealSpellman)
 
-### Former contributors
+### Logo
+* Cole Peterson (BlasterBuilder)
+
+## Active Contributors
+* [EmosewaMC](https://github.com/EmosewaMC)
+* [Jettford](https://github.com/Jettford)
+
+## Former Contributors
 * TheMachine
 * Matthew
 * [Raine](https://github.com/Rainebannister)
 * Bricknave
 
-### Logo
-* Cole Peterson (BlasterBuilder)
-
-## Special thanks
+## Special Thanks
 * humanoid24
 * pwjones1969
 * [Simon](https://github.com/SimonNitzsche)
-* ALL OF THE NETDEVIL AND LEGO TEAMS!
+* [ALL OF THE NETDEVIL AND LEGO TEAMS!](https://www.mobygames.com/game/macintosh/lego-universe/credits)

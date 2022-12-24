@@ -13,13 +13,23 @@ set(DCOMMON_SOURCES "AMFFormat.cpp"
 		"NiQuaternion.cpp"
 		"SHA512.cpp"
 		"Type.cpp"
-		"ZCompression.cpp")
+		"ZCompression.cpp"
+		"BrickByBrickFix.cpp"
+		"BinaryPathFinder.cpp"
+		"FdbToSqlite.cpp"
+)
+
+add_subdirectory(dClient)
+
+foreach(file ${DCOMMON_DCLIENT_SOURCES})
+	set(DCOMMON_SOURCES ${DCOMMON_SOURCES} "dClient/${file}")
+endforeach()
 
 include_directories(${PROJECT_SOURCE_DIR}/dCommon/)
 
 add_library(dCommon STATIC ${DCOMMON_SOURCES})
 
-target_link_libraries(dCommon bcrypt)
+target_link_libraries(dCommon bcrypt dDatabase tinyxml2)
 
 if (UNIX)
 	find_package(ZLIB REQUIRED)
