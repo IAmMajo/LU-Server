@@ -72,6 +72,7 @@
 #include "AMFFormat.h"
 #include "MovingPlatformComponent.h"
 #include "dMessageIdentifiers.h"
+#include "eMissionState.h"
 
 void SlashCommandHandler::HandleChatCommand(const std::u16string& command, Entity* entity, const SystemAddress& sysAddr) {
 	std::string chatCommand;
@@ -685,7 +686,7 @@ void SlashCommandHandler::HandleChatCommand(const std::u16string& command, Entit
 			return;
 		}
 
-		mission->SetMissionState(MissionState::MISSION_STATE_ACTIVE);
+		mission->SetMissionState(eMissionState::ACTIVE);
 
 		return;
 	}
@@ -1198,7 +1199,7 @@ void SlashCommandHandler::HandleChatCommand(const std::u16string& command, Entit
 		EntityManager::Instance()->SerializeEntity(entity);
 	}
 
-	if (chatCommand == "lookup" && entity->GetGMLevel() >= GAME_MASTER_LEVEL_DEVELOPER) {
+	if (chatCommand == "lookup" && entity->GetGMLevel() >= GAME_MASTER_LEVEL_DEVELOPER && args.size() >= 1) {
 		auto query = CDClientDatabase::CreatePreppedStmt(
 			"SELECT `id`, `name` FROM `Objects` WHERE `displayName` LIKE ?1 OR `name` LIKE ?1 OR `description` LIKE ?1 LIMIT 50");
 		// Concatenate all of the arguments into a single query so a multi word query can be used properly.
