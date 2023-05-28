@@ -28,7 +28,7 @@
 #include "eUnequippableActiveType.h"
 #include "eMovementPlatformState.h"
 #include "LeaderboardManager.h"
-#include "AMFFormat.h"
+#include "Amf3.h"
 #include "Loot.h"
 #include "eRacingTaskParam.h"
 #include "eMissionTaskType.h"
@@ -70,6 +70,7 @@
 #include "PetComponent.h"
 #include "ModuleAssemblyComponent.h"
 #include "VehiclePhysicsComponent.h"
+#include "RenderComponent.h"
 #include "PossessableComponent.h"
 #include "PossessorComponent.h"
 #include "RacingControlComponent.h"
@@ -87,10 +88,11 @@
 #include "AMFDeserialize.h"
 #include "eBlueprintSaveResponseType.h"
 #include "eAninmationFlags.h"
-#include "AMFFormat_BitStream.h"
+#include "AmfSerialize.h"
 #include "eReplicaComponentType.h"
 #include "eClientMessageType.h"
 #include "eGameMessageType.h"
+#include "ActivityManager.h"
 
 #include "CDComponentsRegistryTable.h"
 #include "CDObjectsTable.h"
@@ -595,14 +597,14 @@ void GameMessages::SendModifyLEGOScore(Entity* entity, const SystemAddress& sysA
 	SEND_PACKET;
 }
 
-void GameMessages::SendUIMessageServerToSingleClient(Entity* entity, const SystemAddress& sysAddr, const std::string& message, AMFValue* args) {
+void GameMessages::SendUIMessageServerToSingleClient(Entity* entity, const SystemAddress& sysAddr, const std::string& message, AMFBaseValue& args) {
 	CBITSTREAM;
 	CMSGHEADER;
 
 	bitStream.Write(entity->GetObjectID());
 	bitStream.Write((uint16_t)eGameMessageType::UI_MESSAGE_SERVER_TO_SINGLE_CLIENT);
 
-	bitStream.Write(args);
+	bitStream.Write<AMFBaseValue&>(args);
 	uint32_t strMessageNameLength = message.size();
 	bitStream.Write(strMessageNameLength);
 
@@ -613,7 +615,7 @@ void GameMessages::SendUIMessageServerToSingleClient(Entity* entity, const Syste
 	SEND_PACKET;
 }
 
-void GameMessages::SendUIMessageServerToAllClients(const std::string& message, AMFValue* args) {
+void GameMessages::SendUIMessageServerToAllClients(const std::string& message, AMFBaseValue& args) {
 	CBITSTREAM;
 	CMSGHEADER;
 
@@ -621,7 +623,7 @@ void GameMessages::SendUIMessageServerToAllClients(const std::string& message, A
 	bitStream.Write(empty);
 	bitStream.Write((uint16_t)eGameMessageType::UI_MESSAGE_SERVER_TO_ALL_CLIENTS);
 
-	bitStream.Write(args);
+	bitStream.Write<AMFBaseValue&>(args);
 	uint32_t strMessageNameLength = message.size();
 	bitStream.Write(strMessageNameLength);
 
@@ -2485,8 +2487,8 @@ void GameMessages::SendUnSmash(Entity* entity, LWOOBJID builderID, float duratio
 
 void GameMessages::HandleControlBehaviors(RakNet::BitStream* inStream, Entity* entity, const SystemAddress& sysAddr) {
 	AMFDeserialize reader;
-	std::unique_ptr<AMFValue> amfArguments(reader.Read(inStream));
-	if (amfArguments->GetValueType() != AMFValueType::AMFArray) return;
+	std::unique_ptr<AMFBaseValue> amfArguments(reader.Read(inStream));
+	if (amfArguments->GetValueType() != eAmf::Array) return;
 
 	uint32_t commandLength{};
 	inStream->Read(commandLength);
@@ -3891,7 +3893,7 @@ void GameMessages::HandleMessageBoxResponse(RakNet::BitStream* inStream, Entity*
 	auto* racingControlComponent = entity->GetComponent<RacingControlComponent>();
 
 	if (racingControlComponent != nullptr) {
-		racingControlComponent->HandleMessageBoxResponse(userEntity, GeneralUtils::UTF16ToWTF8(identifier));
+		racingControlComponent->HandleMessageBoxResponse(userEntity, iButton, GeneralUtils::UTF16ToWTF8(identifier));
 	}
 
 	for (auto* shootingGallery : EntityManager::Instance()->GetEntitiesByComponent(eReplicaComponentType::SHOOTING_GALLERY)) {
@@ -5124,7 +5126,7 @@ void GameMessages::HandlePlayEmote(RakNet::BitStream* inStream, Entity* entity) 
 		if (emote) sAnimationName = emote->animationName;
 	}
 
-	GameMessages::SendPlayAnimation(entity, GeneralUtils::ASCIIToUTF16(sAnimationName));
+	RenderComponent::PlayAnimation(entity, sAnimationName);
 }
 
 void GameMessages::HandleModularBuildConvertModel(RakNet::BitStream* inStream, Entity* entity, const SystemAddress& sysAddr) {
@@ -6203,4 +6205,16 @@ void GameMessages::SendShowBillboardInteractIcon(const SystemAddress& sysAddr, L
 
 	if (sysAddr == UNASSIGNED_SYSTEM_ADDRESS) SEND_PACKET_BROADCAST
 	else SEND_PACKET
+}
+
+void GameMessages::HandleRequestActivityExit(RakNet::BitStream* inStream, Entity* entity) {
+	bool canceled = false;
+	inStream->Read(canceled);
+	if (!canceled) return;
+
+	LWOOBJID player_id = LWOOBJID_EMPTY;
+	inStream->Read(player_id);
+	auto player = EntityManager::Instance()->GetEntity(player_id);
+	if (!entity || !player) return;
+	entity->RequestActivityExit(entity, player_id, canceled);
 }
