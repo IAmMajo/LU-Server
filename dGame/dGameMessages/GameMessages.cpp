@@ -120,7 +120,7 @@ void GameMessages::SendFireEventClientSide(const LWOOBJID& objectID, const Syste
 	SEND_PACKET;
 }
 
-void GameMessages::SendTeleport(const LWOOBJID& objectID, const NiPoint3& pos, const NiQuaternion& rot, const SystemAddress& sysAddr, bool bSetRotation, bool noGravTeleport) {
+void GameMessages::SendTeleport(const LWOOBJID& objectID, const NiPoint3& pos, const NiQuaternion& rot, const SystemAddress& sysAddr, bool bSetRotation) {
 	CBITSTREAM;
 	CMSGHEADER;
 	bitStream.Write(objectID);
@@ -141,7 +141,6 @@ void GameMessages::SendTeleport(const LWOOBJID& objectID, const NiPoint3& pos, c
 	bitStream.Write(pos.y);
 	bitStream.Write(pos.z);
 	bitStream.Write(bUseNavmesh);
-	bitStream.Write(noGravTeleport);
 
 	bitStream.Write(rot.w != 1.0f);
 	if (rot.w != 1.0f) bitStream.Write(rot.w);
@@ -4733,11 +4732,16 @@ void GameMessages::HandleBuyFromVendor(RakNet::BitStream* inStream, Entity* enti
 
 	const auto isCommendationVendor = entity->GetLOT() == 13806;
 
-	VendorComponent* vend = static_cast<VendorComponent*>(entity->GetComponent(eReplicaComponentType::VENDOR));
+	auto* vend = entity->GetComponent<VendorComponent>();
 	if (!vend && !isCommendationVendor) return;
 
-	InventoryComponent* inv = static_cast<InventoryComponent*>(player->GetComponent(eReplicaComponentType::INVENTORY));
+	auto* inv = player->GetComponent<InventoryComponent>();
 	if (!inv) return;
+
+	if (!isCommendationVendor && !vend->SellsItem(item)) {
+		Game::logger->Log("GameMessages", "User %llu %s tried to buy an item %i from a vendor when they do not sell said item", player->GetObjectID(), user->GetUsername().c_str(), item);
+		return;
+	}
 
 	CDComponentsRegistryTable* compRegistryTable = CDClientManager::Instance().GetTable<CDComponentsRegistryTable>();
 	CDItemComponentTable* itemComponentTable = CDClientManager::Instance().GetTable<CDItemComponentTable>();
