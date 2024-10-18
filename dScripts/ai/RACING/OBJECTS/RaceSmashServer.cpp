@@ -11,7 +11,7 @@ void RaceSmashServer::OnDie(Entity* self, Entity* killer) {
 	auto* possessableComponent = killer->GetComponent<PossessableComponent>();
 	if (possessableComponent != nullptr) {
 
-		auto* possessor = EntityManager::Instance()->GetEntity(possessableComponent->GetPossessor());
+		auto* possessor = Game::entityManager->GetEntity(possessableComponent->GetPossessor());
 		if (possessor != nullptr) {
 
 			auto* missionComponent = possessor->GetComponent<MissionComponent>();
@@ -23,9 +23,9 @@ void RaceSmashServer::OnDie(Entity* self, Entity* killer) {
 
 			// Progress racing smashable missions
 			if (missionComponent == nullptr) return;
-			missionComponent->Progress(eMissionTaskType::RACING, 0, (LWOOBJID)eRacingTaskParam::SMASHABLES);
+			missionComponent->Progress(eMissionTaskType::RACING, 0, static_cast<LWOOBJID>(eRacingTaskParam::SMASHABLES));
 			// Progress missions that ask us to smash a specific smashable.
-			missionComponent->Progress(eMissionTaskType::RACING, self->GetLOT(), (LWOOBJID)eRacingTaskParam::SMASH_SPECIFIC_SMASHABLE);
+			missionComponent->Progress(eMissionTaskType::RACING, self->GetLOT(), static_cast<LWOOBJID>(eRacingTaskParam::SMASH_SPECIFIC_SMASHABLE));
 		}
 	}
 }

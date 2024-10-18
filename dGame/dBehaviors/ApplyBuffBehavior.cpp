@@ -5,8 +5,8 @@
 #include "BuffComponent.h"
 
 
-void ApplyBuffBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitStream, BehaviorBranchContext branch) {
-	auto* entity = EntityManager::Instance()->GetEntity(branch.target == LWOOBJID_EMPTY ? context->originator : branch.target);
+void ApplyBuffBehavior::Handle(BehaviorContext* context, RakNet::BitStream& bitStream, BehaviorBranchContext branch) {
+	auto* entity = Game::entityManager->GetEntity(branch.target == LWOOBJID_EMPTY ? context->originator : branch.target);
 
 	if (entity == nullptr) return;
 
@@ -15,11 +15,11 @@ void ApplyBuffBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitS
 	if (buffComponent == nullptr) return;
 
 	buffComponent->ApplyBuff(m_BuffId, m_Duration, context->originator, addImmunity, cancelOnDamaged, cancelOnDeath,
-		cancelOnLogout, cancelonRemoveBuff, cancelOnUi, cancelOnUnequip, cancelOnZone);
+		cancelOnLogout, cancelonRemoveBuff, cancelOnUi, cancelOnUnequip, cancelOnZone, m_ApplyOnTeammates);
 }
 
 void ApplyBuffBehavior::UnCast(BehaviorContext* context, BehaviorBranchContext branch) {
-	auto* entity = EntityManager::Instance()->GetEntity(branch.target);
+	auto* entity = Game::entityManager->GetEntity(branch.target);
 
 	if (entity == nullptr) return;
 
@@ -30,7 +30,7 @@ void ApplyBuffBehavior::UnCast(BehaviorContext* context, BehaviorBranchContext b
 	buffComponent->RemoveBuff(m_BuffId);
 }
 
-void ApplyBuffBehavior::Calculate(BehaviorContext* context, RakNet::BitStream* bitStream, BehaviorBranchContext branch) {
+void ApplyBuffBehavior::Calculate(BehaviorContext* context, RakNet::BitStream& bitStream, BehaviorBranchContext branch) {
 	Handle(context, bitStream, branch);
 }
 
@@ -45,4 +45,5 @@ void ApplyBuffBehavior::Load() {
 	cancelOnUi = GetBoolean("cancel_on_ui");
 	cancelOnUnequip = GetBoolean("cancel_on_unequip");
 	cancelOnZone = GetBoolean("cancel_on_zone");
+	m_ApplyOnTeammates = GetBoolean("apply_on_teammates");
 }

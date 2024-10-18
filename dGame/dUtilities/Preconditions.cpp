@@ -1,7 +1,7 @@
 #include "Preconditions.h"
 
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 
 #include <sstream>
 
@@ -19,35 +19,34 @@ std::map<uint32_t, Precondition*> Preconditions::cache = {};
 Precondition::Precondition(const uint32_t condition) {
 	auto query = CDClientDatabase::CreatePreppedStmt(
 		"SELECT type, targetLOT, targetCount FROM Preconditions WHERE id = ?;");
-	query.bind(1, (int)condition);
+	query.bind(1, static_cast<int>(condition));
 
 	auto result = query.execQuery();
 
 	if (result.eof()) {
 		this->type = PreconditionType::ItemEquipped;
 		this->count = 1;
-		this->values = { 0 };
+		this->values.clear();
+		this->values.push_back(0);
 
-		Game::logger->Log("Precondition", "Failed to find precondition of id (%i)!", condition);
+		LOG("Failed to find precondition of id (%i)!", condition);
 
 		return;
 	}
 
-	this->type = static_cast<PreconditionType>(result.fieldIsNull(0) ? 0 : result.getIntField(0));
+	this->type = static_cast<PreconditionType>(result.fieldIsNull("type") ? 0 : result.getIntField("type"));
 
-	if (!result.fieldIsNull(1)) {
-		std::istringstream stream(result.getStringField(1));
+	if (!result.fieldIsNull("targetLOT")) {
+		std::istringstream stream(result.getStringField("targetLOT"));
 		std::string token;
 
 		while (std::getline(stream, token, ',')) {
-			uint32_t value;
-			if (GeneralUtils::TryParse(token, value)) {
-				this->values.push_back(value);
-			}
+			const auto validToken = GeneralUtils::TryParse<uint32_t>(token);
+			if (validToken) this->values.push_back(validToken.value());
 		}
 	}
 
-	this->count = result.fieldIsNull(2) ? 1 : result.getIntField(2);
+	this->count = result.fieldIsNull("targetCount") ? 1 : result.getIntField("targetCount");
 
 	result.finalize();
 }
@@ -140,21 +139,20 @@ bool Precondition::CheckValue(Entity* player, const uint32_t value, bool evaluat
 	case PreconditionType::DoesNotHaveItem:
 		return inventoryComponent->IsEquipped(value) < count;
 	case PreconditionType::HasAchievement:
-		mission = missionComponent->GetMission(value);
-
-		return mission == nullptr || mission->GetMissionState() >= eMissionState::COMPLETE;
+		if (missionComponent == nullptr) return false;
+		return missionComponent->GetMissionState(value) >= eMissionState::COMPLETE;
 	case PreconditionType::MissionAvailable:
-		mission = missionComponent->GetMission(value);
-
-		return mission == nullptr || mission->GetMissionState() >= eMissionState::AVAILABLE;
+		if (missionComponent == nullptr) return false;
+		return missionComponent->GetMissionState(value) == eMissionState::AVAILABLE || missionComponent->GetMissionState(value) == eMissionState::COMPLETE_AVAILABLE;
 	case PreconditionType::OnMission:
-		mission = missionComponent->GetMission(value);
-
-		return mission == nullptr || mission->GetMissionState() >= eMissionState::ACTIVE;
+		if (missionComponent == nullptr) return false;
+		return  missionComponent->GetMissionState(value) == eMissionState::ACTIVE || 
+				missionComponent->GetMissionState(value) == eMissionState::COMPLETE_ACTIVE ||
+				missionComponent->GetMissionState(value) == eMissionState::READY_TO_COMPLETE ||
+				missionComponent->GetMissionState(value) == eMissionState::COMPLETE_READY_TO_COMPLETE;
 	case PreconditionType::MissionComplete:
-		mission = missionComponent->GetMission(value);
-
-		return mission == nullptr ? false : mission->GetMissionState() >= eMissionState::COMPLETE;
+		if (missionComponent == nullptr) return false;
+		return missionComponent->GetMissionState(value) >= eMissionState::COMPLETE;
 	case PreconditionType::PetDeployed:
 		return false; // TODO
 	case PreconditionType::HasFlag:

@@ -5,13 +5,13 @@
 #include "eMissionState.h"
 
 void PropertyDevice::OnStartup(Entity* self) {
-	auto* zoneControl = EntityManager::Instance()->GetZoneControlEntity();
+	auto* zoneControl = Game::entityManager->GetZoneControlEntity();
 	if (zoneControl != nullptr) {
 		zoneControl->OnFireEventServerSide(self, "CheckForPropertyOwner");
 	}
 }
 
-void PropertyDevice::OnRebuildComplete(Entity* self, Entity* target) {
+void PropertyDevice::OnQuickBuildComplete(Entity* self, Entity* target) {
 	auto propertyOwnerID = self->GetNetworkVar<std::string>(m_PropertyOwnerVariable);
 	if (propertyOwnerID == std::to_string(LWOOBJID_EMPTY))
 		return;

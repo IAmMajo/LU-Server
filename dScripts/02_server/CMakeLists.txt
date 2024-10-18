@@ -8,10 +8,6 @@ endforeach()
 
 add_subdirectory(Enemy)
 
-foreach(file ${DSCRIPTS_SOURCES_02_SERVER_ENEMY})
-	set(DSCRIPTS_SOURCES_02_SERVER ${DSCRIPTS_SOURCES_02_SERVER} "Enemy/${file}")
-endforeach()
-
 add_subdirectory(Equipment)
 
 foreach(file ${DSCRIPTS_SOURCES_02_SERVER_EQUIPMENT})
@@ -19,10 +15,6 @@ foreach(file ${DSCRIPTS_SOURCES_02_SERVER_EQUIPMENT})
 endforeach()
 
 add_subdirectory(Map)
-
-foreach(file ${DSCRIPTS_SOURCES_02_SERVER_MAP})
-	set(DSCRIPTS_SOURCES_02_SERVER ${DSCRIPTS_SOURCES_02_SERVER} "Map/${file}")
-endforeach()
 
 add_subdirectory(Minigame)
 
@@ -38,8 +30,28 @@ endforeach()
 
 add_subdirectory(Pets)
 
-foreach(file ${DSCRIPTS_SOURCES_02_SERVER_PETS})
-	set(DSCRIPTS_SOURCES_02_SERVER ${DSCRIPTS_SOURCES_02_SERVER} "Pets/${file}")
-endforeach()
+add_library(dScriptsServerBase OBJECT ${DSCRIPTS_SOURCES_02_SERVER})
+target_include_directories(dScriptsServerBase PUBLIC "."
+	"DLU"
+	"Equipment"
+	"Minigame"
+	"Minigame/General"
+	"Objects"
+)
+target_precompile_headers(dScriptsServerBase REUSE_FROM dScriptsBase)
 
-set(DSCRIPTS_SOURCES_02_SERVER ${DSCRIPTS_SOURCES_02_SERVER} PARENT_SCOPE)
+add_library(dScriptsServer INTERFACE)
+target_sources(dScriptsServer INTERFACE
+	$<TARGET_OBJECTS:dScriptsServerBase>
+	$<TARGET_OBJECTS:dScriptsServerEnemy>
+	$<TARGET_OBJECTS:dScriptsServerPets>
+)
+target_link_libraries(dScriptsServer INTERFACE
+	dScriptsServerMap
+)
+target_include_directories(dScriptsServer INTERFACE
+	$<TARGET_PROPERTY:dScriptsServerBase,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsServerEnemy,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsServerMap,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsServerPets,INTERFACE_INCLUDE_DIRECTORIES>
+)

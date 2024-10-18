@@ -3,7 +3,7 @@
 #include "DestroyableComponent.h"
 #include "EntityManager.h"
 #include "dZoneManager.h"
-#include "Player.h"
+#include "CharacterComponent.h"
 #include "eMissionTaskType.h"
 #include "eMissionState.h"
 #include "MissionComponent.h"
@@ -95,7 +95,7 @@ void BaseWavesServer::BasePlayerExit(Entity* self, Entity* player) {
 	SetActivityValue(self, player->GetObjectID(), 2, 0);
 
 	self->SetNetworkVar<uint32_t>(NumberOfPlayersVariable,
-		std::min((uint32_t)0, self->GetNetworkVar<uint32_t>(NumberOfPlayersVariable) - 1));
+		std::min(static_cast<uint32_t>(0), self->GetNetworkVar<uint32_t>(NumberOfPlayersVariable) - 1));
 }
 
 // Done
@@ -162,8 +162,8 @@ void BaseWavesServer::BaseMessageBoxResponse(Entity* self, Entity* sender, int32
 		if (sender->IsPlayer()) {
 			auto* character = sender->GetCharacter();
 			if (character != nullptr) {
-				auto* player = dynamic_cast<Player*>(sender);
-				player->SendToZone(character->GetLastNonInstanceZoneID());
+				auto* characterComponent = sender->GetComponent<CharacterComponent>();
+				if (characterComponent) characterComponent->SendToZone(character->GetLastNonInstanceZoneID());
 			}
 		}
 	}
@@ -195,7 +195,7 @@ void BaseWavesServer::OnActivityTimerDone(Entity* self, const std::string& name)
 		ActivityTimerStart(self, PlaySpawnSoundTimer, 3, 3);
 	} else if (name == PlaySpawnSoundTimer) {
 		for (const auto& playerID : state.players) {
-			auto* player = EntityManager::Instance()->GetEntity(playerID);
+			auto* player = Game::entityManager->GetEntity(playerID);
 			if (player != nullptr) {
 				GameMessages::SendPlayNDAudioEmitter(player, player->GetSystemAddress(), spawnSoundGUID);
 			}
@@ -212,11 +212,11 @@ void BaseWavesServer::OnActivityTimerDone(Entity* self, const std::string& name)
 		const auto currentTime = ActivityTimerGetCurrentTime(self, ClockTickTimer);
 		const auto currentWave = state.waveNumber;
 
-		self->SetNetworkVar<uint32_t>(WaveCompleteVariable, { currentWave, (uint32_t)currentTime });
+		self->SetNetworkVar<uint32_t>(WaveCompleteVariable, { currentWave, static_cast<uint32_t>(currentTime) });
 	} else if (name == GameOverWinTimer) {
 		GameOver(self, true);
 	} else if (name == CinematicDoneTimer) {
-		for (auto* boss : EntityManager::Instance()->GetEntitiesInGroup("boss")) {
+		for (auto* boss : Game::entityManager->GetEntitiesInGroup("boss")) {
 			boss->OnFireEventServerSide(self, "startAI");
 		}
 	}
@@ -224,7 +224,7 @@ void BaseWavesServer::OnActivityTimerDone(Entity* self, const std::string& name)
 
 // Done
 void BaseWavesServer::ResetStats(LWOOBJID playerID) {
-	auto* player = EntityManager::Instance()->GetEntity(playerID);
+	auto* player = Game::entityManager->GetEntity(playerID);
 	if (player != nullptr) {
 
 		// Boost all the player stats when loading in
@@ -284,7 +284,7 @@ void BaseWavesServer::StartWaves(Entity* self) {
 	state.waitingPlayers.clear();
 
 	for (const auto& playerID : state.players) {
-		const auto player = EntityManager::Instance()->GetEntity(playerID);
+		const auto player = Game::entityManager->GetEntity(playerID);
 		if (player != nullptr) {
 			state.waitingPlayers.push_back(playerID);
 
@@ -309,7 +309,7 @@ bool BaseWavesServer::CheckAllPlayersDead() {
 	auto deadPlayers = 0;
 
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player == nullptr || player->GetIsDead()) {
 			deadPlayers++;
 		}
@@ -322,9 +322,9 @@ bool BaseWavesServer::CheckAllPlayersDead() {
 void BaseWavesServer::SetPlayerSpawnPoints(const LWOOBJID& specificPlayerID) {
 	auto spawnerIndex = 1;
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player != nullptr && (specificPlayerID == LWOOBJID_EMPTY || playerID == specificPlayerID)) {
-			auto possibleSpawners = EntityManager::Instance()->GetEntitiesInGroup("P" + std::to_string(spawnerIndex) + "_Spawn");
+			auto possibleSpawners = Game::entityManager->GetEntitiesInGroup("P" + std::to_string(spawnerIndex) + "_Spawn");
 			if (!possibleSpawners.empty()) {
 				auto* spawner = possibleSpawners.at(0);
 				GameMessages::SendTeleport(playerID, spawner->GetPosition(), spawner->GetRotation(), player->GetSystemAddress(), true);
@@ -353,7 +353,7 @@ void BaseWavesServer::GameOver(Entity* self, bool won) {
 	ClearSpawners();
 
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player == nullptr)
 			continue;
 
@@ -378,6 +378,7 @@ void BaseWavesServer::GameOver(Entity* self, bool won) {
 		}
 
 		StopActivity(self, playerID, wave, time, score);
+		SaveScore(self, playerID, wave, time);
 	}
 }
 
@@ -392,7 +393,7 @@ void BaseWavesServer::GameWon(Entity* self) {
 
 // Done
 void BaseWavesServer::SpawnNow(const std::string& spawnerName, uint32_t amount, LOT spawnLot) {
-	const auto spawners = dZoneManager::Instance()->GetSpawnersByName(spawnerName);
+	const auto spawners = Game::zoneManager->GetSpawnersByName(spawnerName);
 	for (auto* spawner : spawners) {
 		if (spawnLot != LOT_NULL) {
 			spawner->SetSpawnLot(spawnLot);
@@ -420,7 +421,7 @@ void BaseWavesServer::SpawnWave(Entity* self) {
 	const auto wave = waves.at(state.waveNumber);
 
 	// Handles meta info to the client about the current round
-	if (wave.winDelay != (uint32_t)-1) {
+	if (wave.winDelay != static_cast<uint32_t>(-1)) {
 		self->SetNetworkVar<bool>(WonWaveVariable, true);
 
 		// Close the game if we don't expect a notification from an other entity to end it
@@ -429,13 +430,13 @@ void BaseWavesServer::SpawnWave(Entity* self) {
 		}
 
 		for (const auto& playerID : state.players) {
-			auto* player = EntityManager::Instance()->GetEntity(playerID);
+			auto* player = Game::entityManager->GetEntity(playerID);
 			if (player && player->GetIsDead()) {
 				player->Resurrect();
 			}
 		}
 	} else {
-		if (wave.timeLimit != (uint32_t)-1) {
+		if (wave.timeLimit != static_cast<uint32_t>(-1)) {
 			ActivityTimerStart(self, TimedWaveTimer, 1.0f, wave.timeLimit);
 			self->SetNetworkVar<uint32_t>(StartTimedWaveVariable, { wave.timeLimit, state.waveNumber + 1 });
 		} else {
@@ -471,7 +472,7 @@ bool BaseWavesServer::UpdateSpawnedEnemies(Entity* self, LWOOBJID enemyID, uint3
 
 	state.currentSpawned--;
 
-	auto* enemy = EntityManager::Instance()->GetEntity(enemyID);
+	auto* enemy = Game::entityManager->GetEntity(enemyID);
 	if (enemy != nullptr && enemy->IsPlayer() && IsPlayerInActivity(self, enemyID)) {
 		SetActivityValue(self, enemyID, 0, GetActivityValue(self, enemyID, 0) + score);
 	}
@@ -499,7 +500,7 @@ bool BaseWavesServer::UpdateSpawnedEnemies(Entity* self, LWOOBJID enemyID, uint3
 		const auto soloWaveMissions = waves.at(completedWave).soloMissions;
 
 		for (const auto& playerID : state.players) {
-			auto* player = EntityManager::Instance()->GetEntity(playerID);
+			auto* player = Game::entityManager->GetEntity(playerID);
 			if (player != nullptr && !player->GetIsDead()) {
 				SetActivityValue(self, playerID, 1, currentTime);
 				SetActivityValue(self, playerID, 2, state.waveNumber);
@@ -547,7 +548,7 @@ bool BaseWavesServer::UpdateSpawnedEnemies(Entity* self, LWOOBJID enemyID, uint3
 		}
 
 		// Might seem odd to send the next wave but the client isn't 0-indexed so it thinks it completed the correct wave
-		self->SetNetworkVar<uint32_t>(WaveCompleteVariable, { state.waveNumber, (uint32_t)currentTime });
+		self->SetNetworkVar<uint32_t>(WaveCompleteVariable, { state.waveNumber, static_cast<uint32_t>(currentTime) });
 		return true;
 	}
 
@@ -558,7 +559,7 @@ bool BaseWavesServer::UpdateSpawnedEnemies(Entity* self, LWOOBJID enemyID, uint3
 // Done
 void BaseWavesServer::UpdateMissionForAllPlayers(Entity* self, uint32_t missionID) {
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player != nullptr) {
 			auto* missionComponent = player->GetComponent<MissionComponent>();
 			if (missionComponent == nullptr) return;
@@ -581,7 +582,7 @@ void BaseWavesServer::UpdateMissionForAllPlayers(Entity* self, uint32_t missionI
 
 void BaseWavesServer::ClearSpawners() {
 	for (const auto& spawnerName : spawners) {
-		const auto spawnerObjects = dZoneManager::Instance()->GetSpawnersByName(spawnerName);
+		const auto spawnerObjects = Game::zoneManager->GetSpawnersByName(spawnerName);
 
 		for (auto* spawnerObject : spawnerObjects) {
 			spawnerObject->Reset();

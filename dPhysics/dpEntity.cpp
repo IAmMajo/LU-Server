@@ -3,8 +3,6 @@
 #include "dpShapeBox.h"
 #include "dpGrid.h"
 
-#include <iostream>
-
 dpEntity::dpEntity(const LWOOBJID& objectID, dpShapeType shapeType, bool isStatic) {
 	m_ObjectID = objectID;
 	m_IsStatic = isStatic;
@@ -22,7 +20,7 @@ dpEntity::dpEntity(const LWOOBJID& objectID, dpShapeType shapeType, bool isStati
 		break;
 
 	default:
-		std::cout << "No shape for shapeType: " << (int)shapeType << std::endl;
+		LOG("No shape for shapeType: %d", static_cast<int32_t>(shapeType));
 	}
 }
 
@@ -76,22 +74,17 @@ void dpEntity::CheckCollision(dpEntity* other) {
 		return;
 	}
 
-	bool wasFound = (m_CurrentlyCollidingObjects.find(other->GetObjectID()) != m_CurrentlyCollidingObjects.end());
-
-	bool isColliding = m_CollisionShape->IsColliding(other->GetShape());
+	const auto objId = other->GetObjectID();
+	const auto objItr = m_CurrentlyCollidingObjects.find(objId);
+	const bool wasFound = objItr != m_CurrentlyCollidingObjects.cend();
+	const bool isColliding = m_CollisionShape->IsColliding(other->GetShape());
 
 	if (isColliding && !wasFound) {
-		m_CurrentlyCollidingObjects.emplace(other->GetObjectID(), other);
-		m_NewObjects.push_back(other);
-
-		//if (m_CollisionShape->GetShapeType() == dpShapeType::Sphere && other->GetShape()->GetShapeType() == dpShapeType::Sphere)
-			//std::cout << "started sphere col at: " << other->GetPosition().x << ", " << other->GetPosition().y << ", " << other->GetPosition().z << std::endl;
+		m_CurrentlyCollidingObjects.emplace(objId);
+		m_NewObjects.push_back(objId);
 	} else if (!isColliding && wasFound) {
-		m_CurrentlyCollidingObjects.erase(other->GetObjectID());
-		m_RemovedObjects.push_back(other);
-
-		//if (m_CollisionShape->GetShapeType() == dpShapeType::Sphere && other->GetShape()->GetShapeType() == dpShapeType::Sphere)
-		//	std::cout << "stopped sphere col at: " << other->GetPosition().x << ", " << other->GetPosition().y << ", " << other->GetPosition().z << std::endl;
+		m_CurrentlyCollidingObjects.erase(objItr);
+		m_RemovedObjects.push_back(objId);
 	}
 }
 

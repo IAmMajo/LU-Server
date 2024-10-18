@@ -3,7 +3,7 @@
 #include "Item.h"
 #include "DestroyableComponent.h"
 #include "EntityManager.h"
-#include "RebuildComponent.h"
+#include "QuickBuildComponent.h"
 #include "SoundTriggerComponent.h"
 #include "InventoryComponent.h"
 #include "MissionComponent.h"
@@ -20,13 +20,13 @@ void NsConcertInstrument::OnStartup(Entity* self) {
 	self->SetVar<LWOOBJID>(u"oldItemRight", LWOOBJID_EMPTY);
 }
 
-void NsConcertInstrument::OnRebuildNotifyState(Entity* self, eRebuildState state) {
-	if (state == eRebuildState::RESETTING || state == eRebuildState::OPEN) {
+void NsConcertInstrument::OnQuickBuildNotifyState(Entity* self, eQuickBuildState state) {
+	if (state == eQuickBuildState::RESETTING || state == eQuickBuildState::OPEN) {
 		self->SetVar<LWOOBJID>(u"activePlayer", LWOOBJID_EMPTY);
 	}
 }
 
-void NsConcertInstrument::OnRebuildComplete(Entity* self, Entity* target) {
+void NsConcertInstrument::OnQuickBuildComplete(Entity* self, Entity* target) {
 	if (!target->GetIsDead()) {
 		self->SetVar<LWOOBJID>(u"activePlayer", target->GetObjectID());
 
@@ -49,7 +49,7 @@ void NsConcertInstrument::OnFireEventServerSide(Entity* self, Entity* sender, st
 		if (activePlayerID == LWOOBJID_EMPTY)
 			return;
 
-		const auto activePlayer = EntityManager::Instance()->GetEntity(activePlayerID);
+		const auto activePlayer = Game::entityManager->GetEntity(activePlayerID);
 		if (activePlayer == nullptr)
 			return;
 
@@ -63,7 +63,7 @@ void NsConcertInstrument::OnTimerDone(Entity* self, std::string name) {
 		return;
 
 	// If for some reason the player becomes null (for example an unexpected leave), we need to clean up
-	const auto activePlayer = EntityManager::Instance()->GetEntity(activePlayerID);
+	const auto activePlayer = Game::entityManager->GetEntity(activePlayerID);
 	if (activePlayer == nullptr && name != "cleanupAfterStop") {
 		StopPlayingInstrument(self, nullptr);
 		return;
@@ -93,9 +93,9 @@ void NsConcertInstrument::OnTimerDone(Entity* self, std::string name) {
 				activePlayer->GetObjectID(), "", UNASSIGNED_SYSTEM_ADDRESS);
 		}
 
-		auto* rebuildComponent = self->GetComponent<RebuildComponent>();
-		if (rebuildComponent != nullptr)
-			rebuildComponent->ResetRebuild(false);
+		auto* quickBuildComponent = self->GetComponent<QuickBuildComponent>();
+		if (quickBuildComponent != nullptr)
+			quickBuildComponent->ResetQuickBuild(false);
 
 		self->Smash(self->GetObjectID(), eKillType::VIOLENT);
 		self->SetVar<LWOOBJID>(u"activePlayer", LWOOBJID_EMPTY);
@@ -126,7 +126,7 @@ void NsConcertInstrument::StartPlayingInstrument(Entity* self, Entity* player) {
 		RenderComponent::PlayAnimation(player, animations.at(instrumentLot), 2.0f);
 		});
 
-	for (auto* soundBox : EntityManager::Instance()->GetEntitiesInGroup("Audio-Concert")) {
+	for (auto* soundBox : Game::entityManager->GetEntitiesInGroup("Audio-Concert")) {
 		auto* soundTrigger = soundBox->GetComponent<SoundTriggerComponent>();
 		if (soundTrigger != nullptr) {
 			soundTrigger->ActivateMusicCue(music.at(instrumentLot));
@@ -161,7 +161,7 @@ void NsConcertInstrument::StopPlayingInstrument(Entity* self, Entity* player) {
 
 	self->SetVar<bool>(u"beingPlayed", false);
 
-	for (auto* soundBox : EntityManager::Instance()->GetEntitiesInGroup("Audio-Concert")) {
+	for (auto* soundBox : Game::entityManager->GetEntitiesInGroup("Audio-Concert")) {
 		auto* soundTrigger = soundBox->GetComponent<SoundTriggerComponent>();
 		if (soundTrigger != nullptr) {
 			soundTrigger->DeactivateMusicCue(music.at(instrumentLot));

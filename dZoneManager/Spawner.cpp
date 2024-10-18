@@ -1,6 +1,6 @@
 #include "Spawner.h"
 #include "EntityManager.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "Game.h"
 #include <sstream>
 #include <functional>
@@ -25,16 +25,6 @@ Spawner::Spawner(const SpawnerInfo info) {
 
 	m_Start = m_Info.noTimedSpawn;
 
-	//ssssh...
-	if (m_EntityInfo.lot == 14718) { //AG - MAELSTROM SAMPLE
-		m_Info.groups.emplace_back("MaelstromSamples");
-	}
-
-	if (m_EntityInfo.lot == 14375) //AG - SPIDER BOSS EGG
-	{
-		m_Info.groups.emplace_back("EGG");
-	}
-
 	int timerCount = m_Info.amountMaintained;
 
 	if (m_Info.amountMaintained > m_Info.nodes.size()) {
@@ -46,25 +36,25 @@ Spawner::Spawner(const SpawnerInfo info) {
 	}
 
 	if (m_Info.spawnOnSmashGroupName != "") {
-		std::vector<Entity*> spawnSmashEntities = EntityManager::Instance()->GetEntitiesInGroup(m_Info.spawnOnSmashGroupName);
-		std::vector<Spawner*> spawnSmashSpawners = dZoneManager::Instance()->GetSpawnersInGroup(m_Info.spawnOnSmashGroupName);
-		std::vector<Spawner*> spawnSmashSpawnersN = dZoneManager::Instance()->GetSpawnersByName(m_Info.spawnOnSmashGroupName);
+		std::vector<Entity*> spawnSmashEntities = Game::entityManager->GetEntitiesInGroup(m_Info.spawnOnSmashGroupName);
+		std::vector<Spawner*> spawnSmashSpawners = Game::zoneManager->GetSpawnersInGroup(m_Info.spawnOnSmashGroupName);
+		std::vector<Spawner*> spawnSmashSpawnersN = Game::zoneManager->GetSpawnersByName(m_Info.spawnOnSmashGroupName);
 		for (Entity* ssEntity : spawnSmashEntities) {
 			m_SpawnSmashFoundGroup = true;
-			ssEntity->AddDieCallback([=]() {
+			ssEntity->AddDieCallback([=, this]() {
 				Spawn();
 				});
 		}
 		for (Spawner* ssSpawner : spawnSmashSpawners) {
 			m_SpawnSmashFoundGroup = true;
-			ssSpawner->AddSpawnedEntityDieCallback([=]() {
+			ssSpawner->AddSpawnedEntityDieCallback([=, this]() {
 				Spawn();
 				});
 		}
 		for (Spawner* ssSpawner : spawnSmashSpawnersN) {
 			m_SpawnSmashFoundGroup = true;
 			m_SpawnOnSmash = ssSpawner;
-			ssSpawner->AddSpawnedEntityDieCallback([=]() {
+			ssSpawner->AddSpawnedEntityDieCallback([=, this]() {
 				Spawn();
 				});
 		}
@@ -102,11 +92,11 @@ Entity* Spawner::Spawn(std::vector<SpawnerNode*> freeNodes, const bool force) {
 			m_EntityInfo.spawnerID = m_Info.spawnerID;
 		}
 
-		Entity* rezdE = EntityManager::Instance()->CreateEntity(m_EntityInfo, nullptr);
+		Entity* rezdE = Game::entityManager->CreateEntity(m_EntityInfo, nullptr);
 
 		rezdE->GetGroups() = m_Info.groups;
 
-		EntityManager::Instance()->ConstructEntity(rezdE);
+		Game::entityManager->ConstructEntity(rezdE);
 
 		m_Entities.insert({ rezdE->GetObjectID(), spawnNode });
 		spawnNode->entities.push_back(rezdE->GetObjectID());
@@ -143,7 +133,7 @@ void Spawner::Reset() {
 void Spawner::DestroyAllEntities(){
 	for (auto* node : m_Info.nodes) {
 		for (const auto& element : node->entities) {
-			auto* entity = EntityManager::Instance()->GetEntity(element);
+			auto* entity = Game::entityManager->GetEntity(element);
 			if (entity == nullptr) continue;
 			entity->Kill();
 		}
@@ -203,6 +193,15 @@ void Spawner::Update(const float deltaTime) {
 			Spawn();
 		}
 	}
+}
+
+std::vector<LWOOBJID> Spawner::GetSpawnedObjectIDs() const {
+	std::vector<LWOOBJID> ids;
+	ids.reserve(m_Entities.size());
+	for (const auto& [objId, spawnerNode] : m_Entities) {
+		ids.push_back(objId);
+	}
+	return ids;
 }
 
 void Spawner::NotifyOfEntityDeath(const LWOOBJID& objectID) {

@@ -6,7 +6,7 @@ void NsQbImaginationStatue::OnStartup(Entity* self) {
 
 }
 
-void NsQbImaginationStatue::OnRebuildComplete(Entity* self, Entity* target) {
+void NsQbImaginationStatue::OnQuickBuildComplete(Entity* self, Entity* target) {
 	if (target == nullptr) return;
 
 	self->SetVar(u"Player", target->GetObjectID());
@@ -31,7 +31,7 @@ void NsQbImaginationStatue::OnTimerDone(Entity* self, std::string timerName) {
 void NsQbImaginationStatue::SpawnLoot(Entity* self) {
 	const auto playerId = self->GetVar<LWOOBJID>(u"Player");
 
-	auto* player = EntityManager::Instance()->GetEntity(playerId);
+	auto* player = Game::entityManager->GetEntity(playerId);
 
 	if (player == nullptr) return;
 

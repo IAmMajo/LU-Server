@@ -1,6 +1,6 @@
 /*
  * Darkflame Universe
- * Copyright 2018
+ * Copyright 2024
  */
 
 #ifndef SKILLCOMPONENT_H
@@ -12,7 +12,7 @@
 #include "BitStream.h"
 #include "Component.h"
 #include "Entity.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "eReplicaComponentType.h"
 
 struct ProjectileSyncEntry {
@@ -55,16 +55,16 @@ struct SkillExecutionResult {
  *
  * Skills are a built up by a tree of behaviors. See dGame/dBehaviors/ for a list of behaviors.
  *
- * This system is very conveluted and still has a lot of unknowns.
+ * This system is very convoluted and still has a lot of unknowns.
  */
-class SkillComponent : public Component {
+class SkillComponent final : public Component {
 public:
-	static const eReplicaComponentType ComponentType = eReplicaComponentType::SKILL;
+	static constexpr eReplicaComponentType ComponentType = eReplicaComponentType::SKILL;
 
 	explicit SkillComponent(Entity* parent);
 	~SkillComponent() override;
 
-	static void Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags);
+	void Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) override;
 
 	/**
 	 * Computes skill updates. Invokes CalculateUpdate.
@@ -93,7 +93,7 @@ public:
 	 * @param bitStream the bitSteam given by the client to determine the behavior path
 	 * @param target the explicit target of the skill
 	 */
-	bool CastPlayerSkill(uint32_t behaviorId, uint32_t skillUid, RakNet::BitStream* bitStream, LWOOBJID target, uint32_t skillID = 0);
+	bool CastPlayerSkill(uint32_t behaviorId, uint32_t skillUid, RakNet::BitStream& bitStream, LWOOBJID target, uint32_t skillID = 0);
 
 	/**
 	 * Continues a player skill. Should only be called when the server receives a sync message from the client.
@@ -101,7 +101,7 @@ public:
 	 * @param syncId the unique sync ID of the skill given by the client
 	 * @param bitStream the bitSteam given by the client to determine the behavior path
 	 */
-	void SyncPlayerSkill(uint32_t skillUid, uint32_t syncId, RakNet::BitStream* bitStream);
+	void SyncPlayerSkill(uint32_t skillUid, uint32_t syncId, RakNet::BitStream& bitStream);
 
 	/**
 	 * Continues a player projectile calculation. Should only be called when the server receives a projectile sync message from the client.
@@ -109,7 +109,7 @@ public:
 	 * @param bitStream the bitSteam given by the client to determine the behavior path
 	 * @param target the explicit target of the target
 	 */
-	void SyncPlayerProjectile(LWOOBJID projectileId, RakNet::BitStream* bitStream, LWOOBJID target);
+	void SyncPlayerProjectile(LWOOBJID projectileId, RakNet::BitStream& bitStream, LWOOBJID target);
 
 	/**
 	 * Registers a player projectile. Should only be called when the server is computing a player projectile.
@@ -127,7 +127,7 @@ public:
 	 * @param optionalOriginatorID change the originator of the skill
 	 * @return if the case succeeded
 	 */
-	bool CastSkill(const uint32_t skillId, LWOOBJID target = LWOOBJID_EMPTY, const LWOOBJID optionalOriginatorID = LWOOBJID_EMPTY);
+	bool CastSkill(const uint32_t skillId, LWOOBJID target = LWOOBJID_EMPTY, const LWOOBJID optionalOriginatorID = LWOOBJID_EMPTY, const int32_t castType = 0, const NiQuaternion rotationOverride = NiQuaternionConstant::IDENTITY);
 
 	/**
 	 * Initializes a server-side skill calculation.
@@ -139,7 +139,7 @@ public:
 	 * @param originatorOverride an override for the originator of the skill calculation
 	 * @return the result of the skill calculation
 	 */
-	SkillExecutionResult CalculateBehavior(uint32_t skillId, uint32_t behaviorId, LWOOBJID target, bool ignoreTarget = false, bool clientInitalized = false, LWOOBJID originatorOverride = LWOOBJID_EMPTY);
+	SkillExecutionResult CalculateBehavior(uint32_t skillId, uint32_t behaviorId, LWOOBJID target, bool ignoreTarget = false, bool clientInitalized = false, LWOOBJID originatorOverride = LWOOBJID_EMPTY, const int32_t castType = 0, const NiQuaternion rotationOverride = NiQuaternionConstant::IDENTITY);
 
 	/**
 	 * Register a server-side projectile.
@@ -188,7 +188,7 @@ private:
 	/**
 	 * All of the active skills mapped by their unique ID.
 	 */
-	std::map<uint32_t, BehaviorContext*> m_managedBehaviors;
+	std::multimap<uint32_t, BehaviorContext*> m_managedBehaviors;
 
 	/**
 	 * All active projectiles.

@@ -1,6 +1,6 @@
 /*
  * Darkflame Universe
- * Copyright 2018
+ * Copyright 2023
  */
 
 #ifndef MOVEMENTAICOMPONENT_H
@@ -11,13 +11,16 @@
 #include "GameMessages.h"
 #include "EntityManager.h"
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "Component.h"
 #include "eReplicaComponentType.h"
+#include "Zone.h"
 #include <vector>
 
 class ControllablePhysicsComponent;
 class BaseCombatAIComponent;
+
+struct Path;
 
 /**
  * Information that describes the different variables used to make an entity move around
@@ -55,12 +58,13 @@ struct MovementAIInfo {
  * Component that handles the movement settings of an entity. Not to be confused with the BaseCombatAI component that
  * actually handles attackig and following enemy entities.
  */
-class MovementAIComponent : public Component {
+class MovementAIComponent final : public Component {
 public:
-	static const eReplicaComponentType ComponentType = eReplicaComponentType::MOVEMENT_AI;
+	static constexpr eReplicaComponentType ComponentType = eReplicaComponentType::MOVEMENT_AI;
 
 	MovementAIComponent(Entity* parentEntity, MovementAIInfo info);
-	~MovementAIComponent() override;
+
+	void SetPath(const std::string pathName);
 
 	void Update(float deltaTime) override;
 
@@ -74,7 +78,7 @@ public:
 	 * Set a destination point for the entity to move towards
 	 * @param value the destination point to move towards
 	 */
-	void SetDestination(const NiPoint3& value);
+	void SetDestination(const NiPoint3 value);
 
 	/**
 	 * Returns the current rotation this entity is moving towards
@@ -86,61 +90,55 @@ public:
 	 * Sets the max speed at which this entity may run
 	 * @param value the speed value to set
 	 */
-	void SetSpeed(float value);
-
-	/**
-	 * Returns the max speed at which this entity may run
-	 * @return the max speed at which this entity may run
-	 */
-	float GetSpeed() const;
+	void SetMaxSpeed(float value);
 
 	/**
 	 * Sets how fast the entity will accelerate when not running at full speed
 	 * @param value the acceleration to set
 	 */
-	void SetAcceleration(float value);
+	void SetAcceleration(float value) { m_Acceleration = value; };
 
 	/**
 	 * Returns the current speed at which this entity accelerates when not running at full speed
 	 * @return the current speed at which this entity accelerates when not running at full speed
 	 */
-	float GetAcceleration() const;
+	float GetAcceleration() const { return m_Acceleration; };
 
 	/**
 	 * Sets the halting distance (the distance at which we consider the target to be reached)
 	 * @param value the halting distance to set
 	 */
-	void SetHaltDistance(float value);
+	void SetHaltDistance(float value) { m_HaltDistance = value; }
 
 	/**
 	 * Returns the current halting distance (the distance at which we consider the target to be reached)
 	 * @return the current halting distance
 	 */
-	float GetHaltDistance() const;
+	float GetHaltDistance() const { return m_HaltDistance; }
 
 	/**
 	 * Sets the speed the entity is currently running at
 	 * @param value the speed value to set
 	 */
-	void SetCurrentSpeed(float value);
+	void SetCurrentSpeed(float value) { m_CurrentSpeed = value; }
 
 	/**
 	 * Returns the speed the entity is currently running at
 	 * @return the speed the entity is currently running at
 	 */
-	float GetCurrentSpeed() const;
+	float GetCurrentSpeed() const { return m_CurrentSpeed; }
 
 	/**
 	 * Locks the rotation of this entity in place, depending on the argument
 	 * @param value if true, the entity will be rotationally locked
 	 */
-	void SetLockRotation(bool value);
+	void SetLockRotation(bool value) { m_LockRotation = value; }
 
 	/**
 	 * Returns whether this entity is currently rotationally locked
 	 * @return true if the entity is rotationally locked, false otherwise
 	 */
-	bool GetLockRotation() const;
+	bool GetLockRotation() const { return m_LockRotation; };
 
 	/**
 	 * Attempts to update the waypoint index, making the entity move to the next waypoint
@@ -158,13 +156,7 @@ public:
 	 * Returns the waypoint this entity is supposed to move towards next
 	 * @return the waypoint this entity is supposed to move towards next
 	 */
-	NiPoint3 GetNextWaypoint() const;
-
-	/**
-	 * Returns the current position of this entity
-	 * @return the current position of this entity
-	 */
-	NiPoint3 GetCurrentPosition() const;
+	NiPoint3 GetNextWaypoint() const { return m_NextWaypoint; }
 
 	/**
 	 * Returns the approximate current location of the entity, including y coordinates
@@ -181,16 +173,10 @@ public:
 	bool Warp(const NiPoint3& point);
 
 	/**
-	 * Returns the time it will take to reach the final waypoint according to the current speed
-	 * @return the time it will take to reach the final waypoint according to the current speed
-	 */
-	float GetTimer() const;
-
-	/**
 	 * Returns if the entity is at its final waypoint
 	 * @return if the entity is at its final waypoint
 	 */
-	bool AtFinalWaypoint() const;
+	bool AtFinalWaypoint() const { return m_AtFinalWaypoint; }
 
 	/**
 	 * Renders the entity stationary
@@ -208,7 +194,13 @@ public:
 	 * Sets a path to follow for the AI
 	 * @param path the path to follow
 	 */
-	void SetPath(std::vector<NiPoint3> path);
+	void SetPath(std::vector<PathWaypoint> path);
+
+	void Pause();
+
+	void Resume();
+
+	NiPoint3 GetVelocity() const;
 
 	/**
 	 * Returns the base speed from the DB for a given LOT
@@ -250,17 +242,12 @@ private:
 	/**
 	 * The max speed this entity may move at
 	 */
-	float m_Speed;
+	float m_MaxSpeed;
 
 	/**
 	 * The time it will take to reach the next waypoint using the current speed
 	 */
-	float m_Timer;
-
-	/**
-	 * The total time it will take to reach the waypoint form its starting point
-	 */
-	float m_TotalTime;
+	float m_TimeTravelled;
 
 	/**
 	 * The path this entity is currently traversing
@@ -270,7 +257,7 @@ private:
 	/**
 	 * If the entity has reached it last waypoint
 	 */
-	bool m_Done;
+	bool m_AtFinalWaypoint;
 
 	/**
 	 * The speed the entity is currently moving at
@@ -288,6 +275,11 @@ private:
 	float m_HaltDistance;
 
 	/**
+	 * The total time it will take to reach the waypoint form its starting point
+	 */
+	float m_TimeToTravel;
+
+	/**
 	 * The base speed this entity has
 	 */
 	float m_BaseSpeed;
@@ -295,7 +287,7 @@ private:
 	/**
 	 * If the AI is currently turned of (e.g. when teleporting to some location)
 	 */
-	bool m_Interrupted;
+	bool m_PullingToPoint;
 
 	/**
 	 * A position that the entity is currently moving towards while being interrupted
@@ -315,17 +307,20 @@ private:
 	/**
 	 * The path the entity is currently following
 	 */
-	std::vector<NiPoint3> m_CurrentPath;
+	std::vector<NiPoint3> m_InterpolatedWaypoints;
 
 	/**
-	 * Queue of positions to traverse
+	 * The path from the current position to the destination.
 	 */
-	std::stack<NiPoint3> m_Queue;
+	std::stack<PathWaypoint> m_CurrentPath;
 
-	/**
-	 * Cache of all lots and their respective speeds
-	 */
-	static std::map<LOT, float> m_PhysicsSpeedCache;
+	const Path* m_Path = nullptr;
+
+	NiPoint3 m_SourcePosition;
+
+	bool m_Paused;
+
+	NiPoint3 m_SavedVelocity;
 };
 
 #endif // MOVEMENTAICOMPONENT_H

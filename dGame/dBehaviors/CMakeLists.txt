@@ -7,7 +7,6 @@ set(DGAME_DBEHAVIORS_SOURCES "AirMovementBehavior.cpp"
 	"Behavior.cpp"
 	"BehaviorBranchContext.cpp"
 	"BehaviorContext.cpp"
-	"BehaviorTemplates.cpp"
 	"BlockBehavior.cpp"
 	"BuffBehavior.cpp"
 	"CarBoostBehavior.cpp"
@@ -16,11 +15,11 @@ set(DGAME_DBEHAVIORS_SOURCES "AirMovementBehavior.cpp"
 	"ChangeOrientationBehavior.cpp"
 	"ChargeUpBehavior.cpp"
 	"ClearTargetBehavior.cpp"
+	"ConsumeItemBehavior.cpp"
 	"DamageAbsorptionBehavior.cpp"
 	"DamageReductionBehavior.cpp"
 	"DarkInspirationBehavior.cpp"
 	"DurationBehavior.cpp"
-	"EmptyBehavior.cpp"
 	"EndBehavior.cpp"
 	"FallSpeedBehavior.cpp"
 	"ForceMovementBehavior.cpp"
@@ -53,4 +52,17 @@ set(DGAME_DBEHAVIORS_SOURCES "AirMovementBehavior.cpp"
 	"TargetCasterBehavior.cpp"
 	"TauntBehavior.cpp"
 	"VentureVisionBehavior.cpp"
-	"VerifyBehavior.cpp" PARENT_SCOPE)
+	"VerifyBehavior.cpp")
+
+add_library(dBehaviors OBJECT ${DGAME_DBEHAVIORS_SOURCES})
+target_link_libraries(dBehaviors PUBLIC dDatabaseCDClient dPhysics)
+target_include_directories(dBehaviors PUBLIC "."
+	"${PROJECT_SOURCE_DIR}/dGame/dGameMessages" # via BehaviorContext.h
+	PRIVATE
+	"${PROJECT_SOURCE_DIR}/dGame/dComponents" # direct BuffComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dUtilities" # Preconditions.h via QuickBuildComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dEntity" # via dZoneManager.h, Spawner.h
+	"${PROJECT_SOURCE_DIR}/dGame/dInventory" # via CharacterComponent.h
+	"${PROJECT_SOURCE_DIR}/dZoneManager" # via BasicAttackBehavior.cpp
+)
+target_precompile_headers(dBehaviors REUSE_FROM dGameBase)

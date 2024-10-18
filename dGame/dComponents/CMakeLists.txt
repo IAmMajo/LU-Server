@@ -1,12 +1,19 @@
-set(DGAME_DCOMPONENTS_SOURCES "BaseCombatAIComponent.cpp"
+set(DGAME_DCOMPONENTS_SOURCES
+	"AchievementVendorComponent.cpp"
+	"ActivityComponent.cpp"
+	"BaseCombatAIComponent.cpp"
 	"BouncerComponent.cpp"
 	"BuffComponent.cpp"
 	"BuildBorderComponent.cpp"
 	"CharacterComponent.cpp"
+	"CollectibleComponent.cpp"
 	"Component.cpp"
 	"ControllablePhysicsComponent.cpp"
 	"DestroyableComponent.cpp"
+	"DonationVendorComponent.cpp"
+	"GhostComponent.cpp"
 	"InventoryComponent.cpp"
+	"ItemComponent.cpp"
 	"LevelProgressionComponent.cpp"
 	"LUPExhibitComponent.cpp"
 	"MissionComponent.cpp"
@@ -17,27 +24,59 @@ set(DGAME_DCOMPONENTS_SOURCES "BaseCombatAIComponent.cpp"
 	"MovingPlatformComponent.cpp"
 	"PetComponent.cpp"
 	"PhantomPhysicsComponent.cpp"
+	"PhysicsComponent.cpp"
 	"PlayerForcedMovementComponent.cpp"
 	"PossessableComponent.cpp"
 	"PossessorComponent.cpp"
-	"PropertyComponent.cpp"
 	"PropertyEntranceComponent.cpp"
 	"PropertyManagementComponent.cpp"
 	"PropertyVendorComponent.cpp"
 	"ProximityMonitorComponent.cpp"
 	"RacingControlComponent.cpp"
 	"RailActivatorComponent.cpp"
-	"RebuildComponent.cpp"
+	"QuickBuildComponent.cpp"
 	"RenderComponent.cpp"
 	"RigidbodyPhantomPhysicsComponent.cpp"
-	"RocketLaunchLupComponent.cpp"
+	"MultiZoneEntranceComponent.cpp"
 	"RocketLaunchpadControlComponent.cpp"
-	"ScriptedActivityComponent.cpp"
 	"ShootingGalleryComponent.cpp"
 	"SimplePhysicsComponent.cpp"
 	"SkillComponent.cpp"
 	"SoundTriggerComponent.cpp"
 	"SwitchComponent.cpp"
 	"TriggerComponent.cpp"
-	"VehiclePhysicsComponent.cpp"
-	"VendorComponent.cpp" PARENT_SCOPE)
+	"HavokVehiclePhysicsComponent.cpp"
+	"VendorComponent.cpp"
+	"MiniGameControlComponent.cpp"
+	"ScriptComponent.cpp"
+)
+
+add_library(dComponents OBJECT ${DGAME_DCOMPONENTS_SOURCES})
+target_include_directories(dComponents PUBLIC "."
+	"${PROJECT_SOURCE_DIR}/dGame/dPropertyBehaviors" # via ModelComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dPropertyBehaviors/ControlBehaviorMessages"
+	"${PROJECT_SOURCE_DIR}/dGame/dMission" # via MissionComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dBehaviors" # via InventoryComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dInventory" # via InventoryComponent.h
+	PRIVATE
+	"${PROJECT_SOURCE_DIR}/dCommon"
+	"${PROJECT_SOURCE_DIR}/dCommon/dEnums"
+	"${PROJECT_SOURCE_DIR}/dDatabase/CDClientDatabase"
+	"${PROJECT_SOURCE_DIR}/dDatabase/CDClientDatabase/CDClientTables"
+	"${PROJECT_SOURCE_DIR}/dDatabase/GameDatabase"
+	"${PROJECT_SOURCE_DIR}/dDatabase/GameDatabase/ITables"
+	"${PROJECT_SOURCE_DIR}/thirdparty/mariadb-connector-cpp/include"
+	# dPhysics (via dpWorld.h)
+	"${PROJECT_SOURCE_DIR}/thirdparty/recastnavigation/Recast/Include"
+	"${PROJECT_SOURCE_DIR}/thirdparty/recastnavigation/Detour/Include"
+
+	"${PROJECT_SOURCE_DIR}/dScripts/02_server/Map/General" # PetDigServer.h
+	"${PROJECT_SOURCE_DIR}/dGame/dGameMessages" # direct
+	"${PROJECT_SOURCE_DIR}/dGame/dUtilities" # direct Loot.h
+	"${PROJECT_SOURCE_DIR}/dGame/dEntity" # via dZoneManager/Spawner.h
+	"${PROJECT_SOURCE_DIR}/dZoneManager" # via BouncerComponent.cpp, ActivityComponent.cpp
+	"${PROJECT_SOURCE_DIR}/dChatFilter" # via PetComponent.cpp
+)
+target_precompile_headers(dComponents REUSE_FROM dGameBase)
+
+target_link_libraries(dComponents INTERFACE dBehaviors)

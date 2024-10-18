@@ -40,7 +40,7 @@ void NpcAgCourseStarter::OnMessageBoxResponse(Entity* self, Entity* sender, int3
 
 		scriptedActivityComponent->RemoveActivityPlayerData(sender->GetObjectID());
 
-		EntityManager::Instance()->SerializeEntity(self);
+		Game::entityManager->SerializeEntity(self);
 	} else if (identifier == u"player_dialog_start_course" && button == 1) {
 		GameMessages::SendNotifyClientObject(self->GetObjectID(), u"start_timer", 0, 0, LWOOBJID_EMPTY, "", sender->GetSystemAddress());
 
@@ -52,9 +52,9 @@ void NpcAgCourseStarter::OnMessageBoxResponse(Entity* self, Entity* sender, int3
 
 		time_t startTime = std::time(0) + 4; // Offset for starting timer
 
-		data->values[1] = *(float*)&startTime;
+		data->values[1] = *reinterpret_cast<float*>(&startTime);
 
-		EntityManager::Instance()->SerializeEntity(self);
+		Game::entityManager->SerializeEntity(self);
 	} else if (identifier == u"FootRaceCancel") {
 		GameMessages::SendNotifyClientObject(self->GetObjectID(), u"stop_timer", 0, 0, LWOOBJID_EMPTY, "", sender->GetSystemAddress());
 
@@ -68,15 +68,12 @@ void NpcAgCourseStarter::OnMessageBoxResponse(Entity* self, Entity* sender, int3
 	}
 }
 
-void NpcAgCourseStarter::OnFireEventServerSide(Entity* self, Entity* sender, std::string args, int32_t param1, int32_t param2,
-	int32_t param3) {
+void NpcAgCourseStarter::OnFireEventServerSide(Entity* self, Entity* sender, std::string args, int32_t param1, int32_t param2, int32_t param3) {
 	auto* scriptedActivityComponent = self->GetComponent<ScriptedActivityComponent>();
-	if (scriptedActivityComponent == nullptr)
-		return;
+	if (scriptedActivityComponent == nullptr) return;
 
 	auto* data = scriptedActivityComponent->GetActivityPlayerData(sender->GetObjectID());
-	if (data == nullptr)
-		return;
+	if (data == nullptr) return;
 
 	if (args == "course_cancel") {
 		GameMessages::SendNotifyClientObject(self->GetObjectID(), u"cancel_timer", 0, 0,
@@ -84,9 +81,9 @@ void NpcAgCourseStarter::OnFireEventServerSide(Entity* self, Entity* sender, std
 		scriptedActivityComponent->RemoveActivityPlayerData(sender->GetObjectID());
 	} else if (args == "course_finish") {
 		time_t endTime = std::time(0);
-		time_t finish = (endTime - *(time_t*)&data->values[1]);
+		time_t finish = (endTime - *reinterpret_cast<time_t*>(&data->values[1]));
 
-		data->values[2] = *(float*)&finish;
+		data->values[2] = *reinterpret_cast<float*>(&finish);
 
 		auto* missionComponent = sender->GetComponent<MissionComponent>();
 		if (missionComponent != nullptr) {
@@ -95,9 +92,8 @@ void NpcAgCourseStarter::OnFireEventServerSide(Entity* self, Entity* sender, std
 				"performact_time");
 		}
 
-		EntityManager::Instance()->SerializeEntity(self);
-		LeaderboardManager::SaveScore(sender->GetObjectID(), scriptedActivityComponent->GetActivityID(),
-			0, (uint32_t)finish);
+		Game::entityManager->SerializeEntity(self);
+		LeaderboardManager::SaveScore(sender->GetObjectID(), scriptedActivityComponent->GetActivityID(), static_cast<float>(finish));
 
 		GameMessages::SendNotifyClientObject(self->GetObjectID(), u"ToggleLeaderBoard",
 			scriptedActivityComponent->GetActivityID(), 0, sender->GetObjectID(),

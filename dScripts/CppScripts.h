@@ -9,7 +9,7 @@ class Entity;
 class NiPoint3;
 enum class eMissionState : int32_t;
 enum class ePetTamingNotifyType : uint32_t;
-enum class eRebuildState : uint32_t;
+enum class eQuickBuildState : uint32_t;
 
 namespace CppScripts {
 	/**
@@ -29,9 +29,6 @@ namespace CppScripts {
 	 */
 	class Script {
 	public:
-		Script();
-		~Script();
-
 		/**
 		 * Invoked one frame after the script is loaded.
 		 *
@@ -157,23 +154,23 @@ namespace CppScripts {
 		/**
 		 * Invoked when a player has started building this quickbuild.
 		 *
-		 * Equivalent to 'function onRebuildStart(self, msg)'
+		 * Equivalent to 'function onQuickBuildStart(self, msg)'
 		 */
-		virtual void OnRebuildStart(Entity* self, Entity* target) {};
+		virtual void OnQuickBuildStart(Entity* self, Entity* target) {};
 
 		/**
 		 * Invoked when this quickbuild has changed state.
 		 *
-		 * Equivalent to 'function onRebuildNotifyState(self, msg)'
+		 * Equivalent to 'function onQuickBuildNotifyState(self, msg)'
 		 */
-		virtual void OnRebuildNotifyState(Entity* self, eRebuildState state) {};
+		virtual void OnQuickBuildNotifyState(Entity* self, eQuickBuildState state) {};
 
 		/**
 		 * Invoked when this quickbuild has been completed.
 		 *
-		 * Equivalent to 'function onRebuildComplete(self, msg)'
+		 * Equivalent to 'function OnQuickBuildComplete(self, msg)'
 		 */
-		virtual void OnRebuildComplete(Entity* self, Entity* target) {};
+		virtual void OnQuickBuildComplete(Entity* self, Entity* target) {};
 
 		/**
 		 * Invoked when self has received either a hit or heal.
@@ -360,6 +357,10 @@ namespace CppScripts {
 		virtual void OnRequestActivityExit(Entity* sender, LWOOBJID player, bool canceled){};
 	};
 
-	Script* GetScript(Entity* parent, const std::string& scriptName);
-	std::vector<Script*> GetEntityScripts(Entity* entity);
+	Script* const GetScript(Entity* parent, const std::string& scriptName);
+
+	// Get the invalid script.  Would be a static variable of the namespace, but that would be
+	// more cluttery to use.  Also this allows us to control where this invalid script is defined and initialized
+	// since we dont want anyone externally modifying it.
+	Script* const GetInvalidScript();
 };

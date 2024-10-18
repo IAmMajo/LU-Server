@@ -1,15 +1,15 @@
 #include "AndBehavior.h"
 #include "BehaviorBranchContext.h"
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 
-void AndBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitStream, const BehaviorBranchContext branch) {
+void AndBehavior::Handle(BehaviorContext* context, RakNet::BitStream& bitStream, const BehaviorBranchContext branch) {
 	for (auto* behavior : this->m_behaviors) {
 		behavior->Handle(context, bitStream, branch);
 	}
 }
 
-void AndBehavior::Calculate(BehaviorContext* context, RakNet::BitStream* bitStream, const BehaviorBranchContext branch) {
+void AndBehavior::Calculate(BehaviorContext* context, RakNet::BitStream& bitStream, const BehaviorBranchContext branch) {
 	for (auto* behavior : this->m_behaviors) {
 		behavior->Calculate(context, bitStream, branch);
 	}

@@ -16,7 +16,7 @@ void MastTeleport::OnStartup(Entity* self) {
 	self->SetNetworkVar<std::string>(u"hookPreconditions", "154;44", UNASSIGNED_SYSTEM_ADDRESS);
 }
 
-void MastTeleport::OnRebuildComplete(Entity* self, Entity* target) {
+void MastTeleport::OnQuickBuildComplete(Entity* self, Entity* target) {
 	if (Preconditions::Check(target, 154) && Preconditions::Check(target, 44)) {
 		self->SetVar<LWOOBJID>(u"userID", target->GetObjectID());
 
@@ -33,7 +33,7 @@ void MastTeleport::OnRebuildComplete(Entity* self, Entity* target) {
 void MastTeleport::OnTimerDone(Entity* self, std::string timerName) {
 	const auto playerId = self->GetVar<LWOOBJID>(u"userID");
 
-	auto* player = EntityManager::Instance()->GetEntity(playerId);
+	auto* player = Game::entityManager->GetEntity(playerId);
 
 	if (player == nullptr) return;
 
@@ -81,13 +81,13 @@ void MastTeleport::OnTimerDone(Entity* self, std::string timerName) {
 
 		GameMessages::SendOrientToAngle(playerId, true, rads, player->GetSystemAddress());
 
-		GameMessages::SendTeleport(playerId, position, NiQuaternion::IDENTITY, player->GetSystemAddress());
+		GameMessages::SendTeleport(playerId, position, NiQuaternionConstant::IDENTITY, player->GetSystemAddress());
 
 		GameMessages::SendSetStunned(playerId, eStateChangeType::POP, player->GetSystemAddress(),
 			LWOOBJID_EMPTY, true, true, true, true, true, true, true
 		);
 		auto* destroyableComponent = player->GetComponent<DestroyableComponent>();
 		if (destroyableComponent) destroyableComponent->SetStatusImmunity(eStateChangeType::POP, true, true, true, true, true, false, false, true, true);
-		EntityManager::Instance()->SerializeEntity(player);
+		Game::entityManager->SerializeEntity(player);
 	}
 }

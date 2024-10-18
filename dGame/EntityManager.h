@@ -1,11 +1,12 @@
 #ifndef ENTITYMANAGER_H
 #define ENTITYMANAGER_H
 
-#include "dCommonVars.h"
 #include <map>
 #include <stack>
 #include <vector>
 #include <unordered_map>
+
+#include "dCommonVars.h"
 
 class Entity;
 class EntityInfo;
@@ -17,18 +18,7 @@ struct SystemAddress;
 
 class EntityManager {
 public:
-	static EntityManager* Instance() {
-		if (!m_Address) {
-			m_Address = new EntityManager();
-			m_Address->Initialize();
-		}
-
-		return m_Address;
-	}
-
 	void Initialize();
-
-	~EntityManager();
 
 	void UpdateEntities(float deltaTime);
 	Entity* CreateEntity(EntityInfo info, User* user = nullptr, Entity* parentEntity = nullptr, bool controller = false, LWOOBJID explicitId = LWOOBJID_EMPTY);
@@ -38,6 +28,7 @@ public:
 	std::vector<Entity*> GetEntitiesInGroup(const std::string& group);
 	std::vector<Entity*> GetEntitiesByComponent(eReplicaComponentType componentType) const;
 	std::vector<Entity*> GetEntitiesByLOT(const LOT& lot) const;
+	std::vector<Entity*> GetEntitiesByProximity(NiPoint3 reference, float radius) const;
 	Entity* GetZoneControlEntity() const;
 
 	// Get spawn point entity by spawn name
@@ -54,22 +45,19 @@ public:
 	void ConstructEntity(Entity* entity, const SystemAddress& sysAddr = UNASSIGNED_SYSTEM_ADDRESS, bool skipChecks = false);
 	void DestructEntity(Entity* entity, const SystemAddress& sysAddr = UNASSIGNED_SYSTEM_ADDRESS);
 	void SerializeEntity(Entity* entity);
+	void SerializeEntity(const Entity& entity);
 
 	void ConstructAllEntities(const SystemAddress& sysAddr);
 	void DestructAllEntities(const SystemAddress& sysAddr);
 
 	void SetGhostDistanceMax(float value);
-	float GetGhostDistanceMax() const;
 	void SetGhostDistanceMin(float value);
-	float GetGhostDistanceMin() const;
 	void QueueGhostUpdate(LWOOBJID playerID);
 	void UpdateGhosting();
-	void UpdateGhosting(Player* player);
+	void UpdateGhosting(Entity* player);
 	void CheckGhosting(Entity* entity);
-	Entity* GetGhostCandidate(int32_t id);
+	Entity* GetGhostCandidate(LWOOBJID id) const;
 	bool GetGhostingEnabled() const;
-
-	void ResetFlags();
 
 	void ScheduleForKill(Entity* entity);
 
@@ -89,7 +77,6 @@ private:
 	void KillEntities();
 	void DeleteEntities();
 
-	static EntityManager* m_Address; //For singleton method
 	static std::vector<LWOMAPID> m_GhostingExcludedZones;
 	static std::vector<LOT> m_GhostingExcludedLOTs;
 

@@ -14,7 +14,6 @@ public:
 		ReloadZone, //Forces the server and all connects clients to reload the map
 		UserJoined,
 		UserMoved,
-		PrintAllGameObjects, //Using this is a BAD idea in production
 		InvalidNotifier
 	};
 
@@ -25,20 +24,11 @@ private:
 	void LoadWorldConfig();
 
 public:
-	static dZoneManager* Instance() {
-		if (!m_Address) {
-			m_Address = new dZoneManager();
-		}
-
-		return m_Address;
-	}
-
 	void Initialize(const LWOZONEID& zoneID);
 	~dZoneManager();
 
 	Zone* GetZone(); //Gets a pointer to the currently loaded zone.
 	void LoadZone(const LWOZONEID& zoneID); //Discard the current zone (if any) and loads a new zone.
-	void NotifyZone(const dZoneNotifier& notifier, const LWOOBJID& objectID); //Notifies the zone of a certain event or command.
 	void AddSpawner(LWOOBJID id, Spawner* spawner);
 	LWOZONEID GetZoneID() const;
 	LWOOBJID MakeSpawner(SpawnerInfo info);
@@ -49,6 +39,9 @@ public:
 	void Update(float deltaTime);
 	Entity* GetZoneControlObject() { return m_ZoneControlObject; }
 	bool GetPlayerLoseCoinOnDeath() { return m_PlayerLoseCoinsOnDeath; }
+	bool GetDisableSaveLocation() { return m_DisableSaveLocation; }
+	bool GetMountsAllowed() { return m_MountsAllowed; }
+	bool GetPetsAllowed() { return m_PetsAllowed; }
 	uint32_t GetUniqueMissionIdStartingValue();
 	bool CheckIfAccessibleZone(LWOMAPID zoneID);
 
@@ -64,10 +57,12 @@ private:
 	 */
 	uint32_t m_UniqueMissionIdStart = 0;
 
-	static dZoneManager* m_Address; //Singleton
 	Zone* m_pZone = nullptr;
 	LWOZONEID m_ZoneID;
-	bool m_PlayerLoseCoinsOnDeath; //Do players drop coins in this zone when smashed
+	bool m_PlayerLoseCoinsOnDeath = false;
+	bool m_DisableSaveLocation = false;
+	bool m_MountsAllowed = true;
+	bool m_PetsAllowed = true;
 	std::map<LWOOBJID, Spawner*> m_Spawners;
 	WorldConfig* m_WorldConfig = nullptr;
 

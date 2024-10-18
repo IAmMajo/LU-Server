@@ -3,7 +3,7 @@
 #include "GameMessages.h"
 #include "Character.h"
 #include "MissionComponent.h"
-#include "RebuildComponent.h"
+#include "QuickBuildComponent.h"
 #include "eTerminateType.h"
 #include "ePlayerFlag.h"
 
@@ -12,13 +12,13 @@ void NsTokenConsoleServer::OnStartup(Entity* self) {
 }
 
 void NsTokenConsoleServer::OnUse(Entity* self, Entity* user) {
-	auto* rebuildComponent = self->GetComponent<RebuildComponent>();
+	auto* quickBuildComponent = self->GetComponent<QuickBuildComponent>();
 
-	if (rebuildComponent == nullptr) {
+	if (quickBuildComponent == nullptr) {
 		return;
 	}
 
-	if (rebuildComponent->GetState() != eRebuildState::COMPLETED) {
+	if (quickBuildComponent->GetState() != eQuickBuildState::COMPLETED) {
 		return;
 	}
 
@@ -39,7 +39,7 @@ void NsTokenConsoleServer::OnUse(Entity* self, Entity* user) {
 	const auto useSound = self->GetVar<std::string>(u"sound1");
 
 	if (!useSound.empty()) {
-		GameMessages::SendPlayNDAudioEmitter(self, UNASSIGNED_SYSTEM_ADDRESS, useSound);
+		GameMessages::SendPlayNDAudioEmitter(self, user->GetSystemAddress(), useSound);
 	}
 
 	// Player must be in faction to interact with this entity.

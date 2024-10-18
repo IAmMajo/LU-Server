@@ -5,7 +5,7 @@
 #include "SkillComponent.h"
 #include "TeamManager.h"
 
-void AgSurvivalBuffStation::OnRebuildComplete(Entity* self, Entity* target) {
+void AgSurvivalBuffStation::OnQuickBuildComplete(Entity* self, Entity* target) {
 	auto destroyableComponent = self->GetComponent<DestroyableComponent>();
 	// We set the faction to 1 so that the buff station sees players as friendly targets to buff
 	if (destroyableComponent != nullptr) destroyableComponent->SetFaction(1);
@@ -53,13 +53,9 @@ void AgSurvivalBuffStation::OnTimerDone(Entity* self, std::string timerName) {
 	}
 	auto team = self->GetVar<std::vector<LWOOBJID>>(u"BuilderTeam");
 	for (auto memberID : team) {
-		auto member = EntityManager::Instance()->GetEntity(memberID);
+		auto member = Game::entityManager->GetEntity(memberID);
 		if (member != nullptr && !member->GetIsDead()) {
 			GameMessages::SendDropClientLoot(member, self->GetObjectID(), powerupToDrop, 0, self->GetPosition());
-		} else {
-			// If player left the team or left early erase them from the team variable.
-			team.erase(std::find(team.begin(), team.end(), memberID));
-			self->SetVar<std::vector<LWOOBJID>>(u"BuilderTeam", team);
 		}
 	}
 }

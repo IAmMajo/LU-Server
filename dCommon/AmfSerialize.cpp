@@ -1,7 +1,7 @@
 #include "AmfSerialize.h"
 
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 
 // Writes an AMFValue pointer to a RakNet::BitStream
 template<>
@@ -29,7 +29,7 @@ void RakNet::BitStream::Write<AMFBaseValue&>(AMFBaseValue& value) {
 		break;
 	}
 	default: {
-		Game::logger->Log("AmfSerialize", "Encountered unwritable AMFType %i!", type);
+		LOG("Encountered unwritable AMFType %i!", type);
 	}
 	case eAmf::Undefined:
 	case eAmf::Null:
@@ -53,22 +53,22 @@ void RakNet::BitStream::Write<AMFBaseValue&>(AMFBaseValue& value) {
  * A private function to write an value to a RakNet::BitStream
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteUInt29(RakNet::BitStream* bs, uint32_t v) {
-	unsigned char b4 = (unsigned char)v;
+void WriteUInt29(RakNet::BitStream& bs, uint32_t v) {
+	unsigned char b4 = static_cast<unsigned char>(v);
 	if (v < 0x00200000) {
 		b4 = b4 & 0x7F;
 		if (v > 0x7F) {
 			unsigned char b3;
 			v = v >> 7;
-			b3 = ((unsigned char)(v)) | 0x80;
+			b3 = static_cast<unsigned char>(v) | 0x80;
 			if (v > 0x7F) {
 				unsigned char b2;
 				v = v >> 7;
-				b2 = ((unsigned char)(v)) | 0x80;
-				bs->Write(b2);
+				b2 = static_cast<unsigned char>(v) | 0x80;
+				bs.Write(b2);
 			}
 
-			bs->Write(b3);
+			bs.Write(b3);
 		}
 	} else {
 		unsigned char b1;
@@ -76,25 +76,25 @@ void WriteUInt29(RakNet::BitStream* bs, uint32_t v) {
 		unsigned char b3;
 
 		v = v >> 8;
-		b3 = ((unsigned char)(v)) | 0x80;
+		b3 = static_cast<unsigned char>(v) | 0x80;
 		v = v >> 7;
-		b2 = ((unsigned char)(v)) | 0x80;
+		b2 = static_cast<unsigned char>(v) | 0x80;
 		v = v >> 7;
-		b1 = ((unsigned char)(v)) | 0x80;
+		b1 = static_cast<unsigned char>(v) | 0x80;
 
-		bs->Write(b1);
-		bs->Write(b2);
-		bs->Write(b3);
+		bs.Write(b1);
+		bs.Write(b2);
+		bs.Write(b3);
 	}
 
-	bs->Write(b4);
+	bs.Write(b4);
 }
 
 /**
  * Writes a flag number to a RakNet::BitStream
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteFlagNumber(RakNet::BitStream* bs, uint32_t v) {
+void WriteFlagNumber(RakNet::BitStream& bs, uint32_t v) {
 	v = (v << 1) | 0x01;
 	WriteUInt29(bs, v);
 }
@@ -104,9 +104,9 @@ void WriteFlagNumber(RakNet::BitStream* bs, uint32_t v) {
  *
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteAMFString(RakNet::BitStream* bs, const std::string& str) {
-	WriteFlagNumber(bs, (uint32_t)str.size());
-	bs->Write(str.c_str(), (uint32_t)str.size());
+void WriteAMFString(RakNet::BitStream& bs, const std::string& str) {
+	WriteFlagNumber(bs, static_cast<uint32_t>(str.size()));
+	bs.Write(str.c_str(), static_cast<uint32_t>(str.size()));
 }
 
 /**
@@ -114,8 +114,8 @@ void WriteAMFString(RakNet::BitStream* bs, const std::string& str) {
  *
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteAMFU16(RakNet::BitStream* bs, uint16_t value) {
-	bs->Write(value);
+void WriteAMFU16(RakNet::BitStream& bs, uint16_t value) {
+	bs.Write(value);
 }
 
 /**
@@ -123,8 +123,8 @@ void WriteAMFU16(RakNet::BitStream* bs, uint16_t value) {
  *
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteAMFU32(RakNet::BitStream* bs, uint32_t value) {
-	bs->Write(value);
+void WriteAMFU32(RakNet::BitStream& bs, uint32_t value) {
+	bs.Write(value);
 }
 
 /**
@@ -132,40 +132,40 @@ void WriteAMFU32(RakNet::BitStream* bs, uint32_t value) {
  *
  * RakNet writes in the correct byte order - do not reverse this.
  */
-void WriteAMFU64(RakNet::BitStream* bs, uint64_t value) {
-	bs->Write(value);
+void WriteAMFU64(RakNet::BitStream& bs, uint64_t value) {
+	bs.Write(value);
 }
 
 // Writes an AMFIntegerValue to BitStream
 template<>
 void RakNet::BitStream::Write<AMFIntValue&>(AMFIntValue& value) {
-	WriteUInt29(this, value.GetValue());
+	WriteUInt29(*this, value.GetValue());
 }
 
 // Writes an AMFDoubleValue to BitStream
 template<>
 void RakNet::BitStream::Write<AMFDoubleValue&>(AMFDoubleValue& value) {
 	double d = value.GetValue();
-	WriteAMFU64(this, *reinterpret_cast<uint64_t*>(&d));
+	WriteAMFU64(*this, *reinterpret_cast<uint64_t*>(&d));
 }
 
 // Writes an AMFStringValue to BitStream
 template<>
 void RakNet::BitStream::Write<AMFStringValue&>(AMFStringValue& value) {
-	WriteAMFString(this, value.GetValue());
+	WriteAMFString(*this, value.GetValue());
 }
 
 // Writes an AMFArrayValue to BitStream
 template<>
 void RakNet::BitStream::Write<AMFArrayValue&>(AMFArrayValue& value) {
 	uint32_t denseSize = value.GetDense().size();
-	WriteFlagNumber(this, denseSize);
+	WriteFlagNumber(*this, denseSize);
 
 	auto it = value.GetAssociative().begin();
 	auto end = value.GetAssociative().end();
 
 	while (it != end) {
-		WriteAMFString(this, it->first);
+		WriteAMFString(*this, it->first);
 		this->Write<AMFBaseValue&>(*it->second);
 		it++;
 	}

@@ -2,8 +2,9 @@
 #define __GAMEDEPENDENCIES__H__
 
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "dServer.h"
+#include "CDClientManager.h"
 #include "EntityInfo.h"
 #include "EntityManager.h"
 #include "dConfig.h"
@@ -18,25 +19,29 @@ public:
 	dServerMock() {};
 	~dServerMock() {};
 	RakNet::BitStream* GetMostRecentBitStream() { return sentBitStream; };
-	void Send(RakNet::BitStream* bitStream, const SystemAddress& sysAddr, bool broadcast) override { sentBitStream = bitStream; };
+	void Send(RakNet::BitStream& bitStream, const SystemAddress& sysAddr, bool broadcast) override { sentBitStream = &bitStream; };
 };
 
 class GameDependenciesTest : public ::testing::Test {
 protected:
 	void SetUpDependencies() {
-		info.pos = NiPoint3::ZERO;
-		info.rot = NiQuaternion::IDENTITY;
+		info.pos = NiPoint3Constant::ZERO;
+		info.rot = NiQuaternionConstant::IDENTITY;
 		info.scale = 1.0f;
 		info.spawner = nullptr;
 		info.lot = 999;
-		Game::logger = new dLogger("./testing.log", true, true);
+		Game::logger = new Logger("./testing.log", true, true);
 		Game::server = new dServerMock();
 		Game::config = new dConfig("worldconfig.ini");
+		Game::entityManager = new EntityManager();
+
+		// Create a CDClientManager instance and load from defaults
+		CDClientManager::LoadValuesFromDefaults();
 	}
 
 	void TearDownDependencies() {
 		if (Game::server) delete Game::server;
-		delete EntityManager::Instance();
+		if (Game::entityManager) delete Game::entityManager;
 		if (Game::logger) {
 			Game::logger->Flush();
 			delete Game::logger;
@@ -44,7 +49,7 @@ protected:
 		if (Game::config) delete Game::config;
 	}
 
-	EntityInfo info;
+	EntityInfo info{};
 };
 
 #endif //!__GAMEDEPENDENCIES__H__

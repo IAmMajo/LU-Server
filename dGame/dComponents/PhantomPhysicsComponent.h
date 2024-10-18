@@ -11,13 +11,14 @@
 #include <vector>
 #include "CppScripts.h"
 #include "InvalidScript.h"
-#include "Component.h"
 #include "eReplicaComponentType.h"
+#include "PhysicsComponent.h"
 
 class LDFBaseData;
 class Entity;
 class dpEntity;
 enum class ePhysicsEffectType : uint32_t ;
+enum class eReplicaComponentType : uint32_t;
 
 /**
  * Allows the creation of phantom physics for an entity: a physics object that is generally invisible but can be
@@ -25,20 +26,14 @@ enum class ePhysicsEffectType : uint32_t ;
  * trigger gameplay events, for example the bus in Avant Gardens that moves around when the player touches its physics
  * body. Optionally this object can also have effects, like the fans in AG.
  */
-class PhantomPhysicsComponent : public Component {
+class PhantomPhysicsComponent final : public PhysicsComponent {
 public:
-	static const eReplicaComponentType ComponentType = eReplicaComponentType::PHANTOM_PHYSICS;
+	static constexpr eReplicaComponentType ComponentType = eReplicaComponentType::PHANTOM_PHYSICS;
 
 	PhantomPhysicsComponent(Entity* parent);
 	~PhantomPhysicsComponent() override;
 	void Update(float deltaTime) override;
-	void Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags);
-	void ResetFlags();
-
-	/**
-	 * Creates the physics shape for this entity based on LDF data
-	 */
-	void CreatePhysics();
+	void Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) override;
 
 	/**
 	 * Sets the direction this physics object is pointed at
@@ -77,28 +72,16 @@ public:
 	void SetPhysicsEffectActive(bool val) { m_IsPhysicsEffectActive = val; m_EffectInfoDirty = true; }
 
 	/**
-	 * Returns the position of this physics object
-	 * @return the position of this physics object
-	 */
-	const NiPoint3& GetPosition() const { return m_Position; }
-
-	/**
 	 * Sets the position of this physics object
 	 * @param pos the position to set
 	 */
-	void SetPosition(const NiPoint3& pos);
-
-	/**
-	 * Returns the rotation of this physics object
-	 * @return the rotation of this physics object
-	 */
-	const NiQuaternion& GetRotation() const { return m_Rotation; }
+	void SetPosition(const NiPoint3& pos) override;
 
 	/**
 	 * Sets the rotation of this physics object
 	 * @param rot the rotation to set
 	 */
-	void SetRotation(const NiQuaternion& rot);
+	void SetRotation(const NiQuaternion& rot) override;
 
 	/**
 	 * Returns the effect that's currently active, defaults to 0
@@ -122,7 +105,7 @@ public:
 	/**
 	 * Spawns an object at each of the vertices for debugging purposes
 	 */
-	void SpawnVertices();
+	void SpawnVertices() const;
 
 	/**
 	 * Legacy stuff no clue what this does
@@ -135,26 +118,10 @@ public:
 	void SetMax(uint32_t max);
 
 private:
-
-	/**
-	 * The position of the physics object
-	 */
-	NiPoint3 m_Position;
-
-	/**
-	 * The rotation of the physics object
-	 */
-	NiQuaternion m_Rotation;
-
 	/**
 	 * A scale to apply to the size of the physics object
 	 */
 	float m_Scale;
-
-	/**
-	 * Whether or not the position has changed and needs to be serialized
-	 */
-	bool m_PositionInfoDirty;
 
 	/**
 	 * Whether or not the effect has changed and needs to be serialized
@@ -194,11 +161,6 @@ private:
 	 * The parent entity of this component
 	 */
 	dpEntity* m_dpEntity;
-
-	/**
-	 * Whether or not the physics object has been created yet
-	 */
-	bool m_HasCreatedPhysics = false;
 
 	/**
 	 * Whether or not this physics object represents an object that updates the respawn pos of an entity that crosses it

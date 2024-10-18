@@ -3,9 +3,9 @@
 #include "CharacterComponent.h"
 #include "BehaviorContext.h"
 
-void VentureVisionBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitStream, BehaviorBranchContext branch) {
+void VentureVisionBehavior::Handle(BehaviorContext* context, RakNet::BitStream& bitStream, BehaviorBranchContext branch) {
 
-	const auto targetEntity = EntityManager::Instance()->GetEntity(branch.target);
+	const auto targetEntity = Game::entityManager->GetEntity(branch.target);
 
 	if (targetEntity) {
 		auto characterComponent = targetEntity->GetComponent<CharacterComponent>();
@@ -21,7 +21,7 @@ void VentureVisionBehavior::Handle(BehaviorContext* context, RakNet::BitStream* 
 }
 
 void VentureVisionBehavior::UnCast(BehaviorContext* context, BehaviorBranchContext branch) {
-	const auto targetEntity = EntityManager::Instance()->GetEntity(branch.target);
+	const auto targetEntity = Game::entityManager->GetEntity(branch.target);
 
 	if (targetEntity) {
 		auto characterComponent = targetEntity->GetComponent<CharacterComponent>();

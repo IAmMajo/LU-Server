@@ -10,7 +10,7 @@ SwitchComponent::SwitchComponent(Entity* parent) : Component(parent) {
 
 	m_ResetTime = m_Parent->GetVarAs<int32_t>(u"switch_reset_time");
 
-	m_Rebuild = m_Parent->GetComponent<RebuildComponent>();
+	m_QuickBuild = m_Parent->GetComponent<QuickBuildComponent>();
 }
 
 SwitchComponent::~SwitchComponent() {
@@ -21,8 +21,8 @@ SwitchComponent::~SwitchComponent() {
 	}
 }
 
-void SwitchComponent::Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags) {
-	outBitStream->Write(m_Active);
+void SwitchComponent::Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) {
+	outBitStream.Write(m_Active);
 }
 
 void SwitchComponent::SetActive(bool active) {
@@ -39,8 +39,8 @@ bool SwitchComponent::GetActive() const {
 
 void SwitchComponent::EntityEnter(Entity* entity) {
 	if (!m_Active) {
-		if (m_Rebuild) {
-			if (m_Rebuild->GetState() != eRebuildState::COMPLETED) return;
+		if (m_QuickBuild) {
+			if (m_QuickBuild->GetState() != eQuickBuildState::COMPLETED) return;
 		}
 		m_Active = true;
 		if (!m_Parent) return;
@@ -49,7 +49,7 @@ void SwitchComponent::EntityEnter(Entity* entity) {
 		const auto grpName = m_Parent->GetVarAsString(u"grp_name");
 
 		if (!grpName.empty()) {
-			const auto entities = EntityManager::Instance()->GetEntitiesInGroup(grpName);
+			const auto entities = Game::entityManager->GetEntitiesInGroup(grpName);
 
 			for (auto* entity : entities) {
 				entity->OnFireEventServerSide(entity, "OnActivated");
@@ -63,7 +63,7 @@ void SwitchComponent::EntityEnter(Entity* entity) {
 			RenderComponent::PlayAnimation(m_Parent, u"engaged");
 			m_PetBouncer->SetPetBouncerEnabled(true);
 		} else {
-			EntityManager::Instance()->SerializeEntity(m_Parent);
+			Game::entityManager->SerializeEntity(m_Parent);
 		}
 
 	}
@@ -85,7 +85,7 @@ void SwitchComponent::Update(float deltaTime) {
 			const auto grpName = m_Parent->GetVarAsString(u"grp_name");
 
 			if (!grpName.empty()) {
-				const auto entities = EntityManager::Instance()->GetEntitiesInGroup(grpName);
+				const auto entities = Game::entityManager->GetEntitiesInGroup(grpName);
 
 				for (auto* entity : entities) {
 					entity->OnFireEventServerSide(entity, "OnDectivated");
@@ -95,7 +95,7 @@ void SwitchComponent::Update(float deltaTime) {
 			if (m_PetBouncer != nullptr) {
 				m_PetBouncer->SetPetBouncerEnabled(false);
 			} else {
-				EntityManager::Instance()->SerializeEntity(m_Parent);
+				Game::entityManager->SerializeEntity(m_Parent);
 			}
 		}
 	}

@@ -6,7 +6,7 @@
 #include "NiPoint3.h"
 #include "NiQuaternion.h"
 #include "tinyxml2.h"
-#include "Component.h"
+#include "PhysicsComponent.h"
 #include "dpCollisionChecks.h"
 #include "PhantomPhysicsComponent.h"
 #include "eBubbleType.h"
@@ -19,44 +19,31 @@ enum class eStateChangeType : uint32_t;
 /**
  * Handles the movement of controllable Entities, e.g. enemies and players
  */
-class ControllablePhysicsComponent : public Component {
+class ControllablePhysicsComponent : public PhysicsComponent {
 public:
-	static const eReplicaComponentType ComponentType = eReplicaComponentType::CONTROLLABLE_PHYSICS;
+	static constexpr eReplicaComponentType ComponentType = eReplicaComponentType::CONTROLLABLE_PHYSICS;
 
 	ControllablePhysicsComponent(Entity* entity);
 	~ControllablePhysicsComponent() override;
 
 	void Update(float deltaTime) override;
-	void Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags);
-	void LoadFromXml(tinyxml2::XMLDocument* doc) override;
-	void ResetFlags();
-	void UpdateXml(tinyxml2::XMLDocument* doc) override;
+	void Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) override;
+	void LoadFromXml(const tinyxml2::XMLDocument& doc) override;
+	void UpdateXml(tinyxml2::XMLDocument& doc) override;
 
 	/**
 	 * Sets the position of this entity, also ensures this update is serialized next tick.
 	 * If the entity is static, this is a no-op.
 	 * @param pos The position to set
 	 */
-	void SetPosition(const NiPoint3& pos);
-
-	/**
-	 * Returns the current position of the entity
-	 * @return The current position of the entity
-	 */
-	const NiPoint3& GetPosition() const { return m_Position; }
+	void SetPosition(const NiPoint3& pos) override;
 
 	/**
 	 * Sets the rotation of this entity, ensures this change is serialized next tick. If the entity is static, this is
 	 * a no-op.
 	 * @param rot the rotation to set
 	 */
-	void SetRotation(const NiQuaternion& rot);
-
-	/**
-	 * Returns the current rotation of this entity
-	 * @return the current rotation of this entity
-	 */
-	const NiQuaternion& GetRotation() const { return m_Rotation; }
+	void SetRotation(const NiQuaternion& rot) override;
 
 	/**
 	 * Sets the current velocity of this entity, ensures that this change is serialized next tick. If the entity is
@@ -116,18 +103,6 @@ public:
 	 * @param val whether or not the position is dirty
 	 */
 	void SetDirtyPosition(bool val);
-
-	/**
-	 * Mark the velocity as dirty, forcing a serializtion update next tick
-	 * @param val whether or not the velocity is dirty
-	 */
-	void SetDirtyVelocity(bool val);
-
-	/**
-	 * Mark the angular velocity as dirty, forcing a serialization update next tick
-	 * @param val whether or not the angular velocity is dirty
-	 */
-	void SetDirtyAngularVelocity(bool val);
 
 	/**
 	 * Sets whether or not the entity is currently wearing a jetpack
@@ -198,18 +173,6 @@ public:
 	 * @return the current gravity scale
 	 */
 	const float GetGravityScale() const { return m_GravityScale; }
-
-	/**
-	 * Sets the ignore multipliers value, allowing you to skip the serialization of speed and gravity multipliers
-	 * @param value whether or not to ignore multipliers
-	 */
-	void SetIgnoreMultipliers(bool value) { m_IgnoreMultipliers = value; }
-
-	/**
-	 * Returns the current ignore multipliers value
-	 * @return the current ignore multipliers value
-	 */
-	const bool GetIgnoreMultipliers() const { return m_IgnoreMultipliers; }
 
 	/**
 	 * Can make an entity static, making it unable to move around
@@ -324,34 +287,9 @@ private:
 	dpEntity* m_dpEntity;
 
 	/**
-	 * Whether or not the position is dirty, forcing a serialization update of the position
-	 */
-	bool m_DirtyPosition;
-
-	/**
-	 * The current position of the entity
-	 */
-	NiPoint3 m_Position;
-
-	/**
-	 * The current rotation of the entity
-	 */
-	NiQuaternion m_Rotation;
-
-	/**
-	 * Whether or not the velocity is dirty, forcing a serialization of the velocity
-	 */
-	bool m_DirtyVelocity;
-
-	/**
 	 * The current velocity of the entity
 	 */
 	NiPoint3 m_Velocity;
-
-	/**
-	 * Whether or not the angular velocity is dirty, forcing a serialization
-	 */
-	bool m_DirtyAngularVelocity;
 
 	/**
 	 * The current angular velocity of the entity
@@ -402,11 +340,6 @@ private:
 	 * Forces a serialization of the speed multiplier and the gravity scale
 	 */
 	bool m_DirtyCheats;
-
-	/**
-	 * Makes it so that the speed multiplier and gravity scale are no longer serialized if false
-	 */
-	bool m_IgnoreMultipliers;
 
 	/**
 	 * Whether this entity is static, making it unable to move

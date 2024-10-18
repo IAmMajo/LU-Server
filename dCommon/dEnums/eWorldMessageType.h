@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include "magic_enum.hpp"
+
 enum class eWorldMessageType : uint32_t {
 	VALIDATION = 1,  // 				Session info
 	CHARACTER_LIST_REQUEST,
@@ -27,8 +29,8 @@ enum class eWorldMessageType : uint32_t {
 	ROUTE_PACKET,  // 				Social?
 	POSITION_UPDATE,
 	MAIL,
-	WORD_CHECK, // 				Whitelist word check
-	STRING_CHECK,  // 				Whitelist string check
+	WORD_CHECK, // 				AllowList word check
+	STRING_CHECK,  // 				AllowList string check
 	GET_PLAYERS_IN_ZONE,
 	REQUEST_UGC_MANIFEST_INFO,
 	BLUEPRINT_GET_ALL_DATA_REQUEST,
@@ -36,7 +38,14 @@ enum class eWorldMessageType : uint32_t {
 	HANDLE_FUNNESS,
 	FAKE_PRG_CSR_MESSAGE,
 	REQUEST_FREE_TRIAL_REFRESH,
-	GM_SET_FREE_TRIAL_STATUS
+	GM_SET_FREE_TRIAL_STATUS,
+	UI_HELP_TOP_5 = 91
+};
+
+template <>
+struct magic_enum::customize::enum_range<eWorldMessageType> {
+	static constexpr int min = 0;
+	static constexpr int max = 91;
 };
 
 #endif  //!__EWORLDMESSAGETYPE__H__

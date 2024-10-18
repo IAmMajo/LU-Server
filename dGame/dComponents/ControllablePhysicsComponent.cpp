@@ -1,7 +1,7 @@
 #include "ControllablePhysicsComponent.h"
 #include "Entity.h"
 #include "BitStream.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "Game.h"
 
 #include "dpWorld.h"
@@ -15,23 +15,17 @@
 #include "LevelProgressionComponent.h"
 #include "eStateChangeType.h"
 
-ControllablePhysicsComponent::ControllablePhysicsComponent(Entity* entity) : Component(entity) {
-	m_Position = {};
-	m_Rotation = NiQuaternion::IDENTITY;
+ControllablePhysicsComponent::ControllablePhysicsComponent(Entity* entity) : PhysicsComponent(entity) {
 	m_Velocity = {};
 	m_AngularVelocity = {};
 	m_InJetpackMode = false;
 	m_IsOnGround = true;
 	m_IsOnRail = false;
-	m_DirtyPosition = true;
-	m_DirtyVelocity = true;
-	m_DirtyAngularVelocity = true;
 	m_dpEntity = nullptr;
 	m_Static = false;
 	m_SpeedMultiplier = 1;
 	m_GravityScale = 1;
 	m_DirtyCheats = false;
-	m_IgnoreMultipliers = false;
 
 	m_DirtyEquippedItemInfo = true;
 	m_PickupRadius = 0.0f;
@@ -55,18 +49,18 @@ ControllablePhysicsComponent::ControllablePhysicsComponent(Entity* entity) : Com
 		return;
 
 	if (entity->GetLOT() == 1) {
-		Game::logger->Log("ControllablePhysicsComponent", "Using patch to load minifig physics");
+		LOG("Using patch to load minifig physics");
 
 		float radius = 1.5f;
 		m_dpEntity = new dpEntity(m_Parent->GetObjectID(), radius, false);
 		m_dpEntity->SetCollisionGroup(COLLISION_GROUP_DYNAMIC | COLLISION_GROUP_FRIENDLY);
-		dpWorld::Instance().AddEntity(m_dpEntity);
+		dpWorld::AddEntity(m_dpEntity);
 	}
 }
 
 ControllablePhysicsComponent::~ControllablePhysicsComponent() {
 	if (m_dpEntity) {
-		dpWorld::Instance().RemoveEntity(m_dpEntity);
+		dpWorld::RemoveEntity(m_dpEntity);
 	}
 }
 
@@ -74,97 +68,100 @@ void ControllablePhysicsComponent::Update(float deltaTime) {
 
 }
 
-void ControllablePhysicsComponent::Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags) {
+void ControllablePhysicsComponent::Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) {
 	//If this is a creation, then we assume the position is dirty, even when it isn't.
 	//This is because new clients will still need to receive the position.
 	//if (bIsInitialUpdate) m_DirtyPosition = true;
 
 	if (bIsInitialUpdate) {
-		outBitStream->Write(m_InJetpackMode);
+		outBitStream.Write(m_InJetpackMode);
 		if (m_InJetpackMode) {
-			outBitStream->Write(m_JetpackEffectID);
-			outBitStream->Write(m_JetpackFlying);
-			outBitStream->Write(m_JetpackBypassChecks);
+			outBitStream.Write(m_JetpackEffectID);
+			outBitStream.Write(m_JetpackFlying);
+			outBitStream.Write(m_JetpackBypassChecks);
 		}
 
-		outBitStream->Write1(); // always write these on construction
-		outBitStream->Write(m_ImmuneToStunMoveCount);
-		outBitStream->Write(m_ImmuneToStunJumpCount);
-		outBitStream->Write(m_ImmuneToStunTurnCount);
-		outBitStream->Write(m_ImmuneToStunAttackCount);
-		outBitStream->Write(m_ImmuneToStunUseItemCount);
-		outBitStream->Write(m_ImmuneToStunEquipCount);
-		outBitStream->Write(m_ImmuneToStunInteractCount);
+		outBitStream.Write1(); // always write these on construction
+		outBitStream.Write(m_ImmuneToStunMoveCount);
+		outBitStream.Write(m_ImmuneToStunJumpCount);
+		outBitStream.Write(m_ImmuneToStunTurnCount);
+		outBitStream.Write(m_ImmuneToStunAttackCount);
+		outBitStream.Write(m_ImmuneToStunUseItemCount);
+		outBitStream.Write(m_ImmuneToStunEquipCount);
+		outBitStream.Write(m_ImmuneToStunInteractCount);
 	}
 
-	if (m_IgnoreMultipliers) m_DirtyCheats = false;
+	outBitStream.Write(m_DirtyCheats || bIsInitialUpdate);
+	if (m_DirtyCheats || bIsInitialUpdate) {
+		outBitStream.Write(m_GravityScale);
+		outBitStream.Write(m_SpeedMultiplier);
 
-	outBitStream->Write(m_DirtyCheats);
-	if (m_DirtyCheats) {
-		outBitStream->Write(m_GravityScale);
-		outBitStream->Write(m_SpeedMultiplier);
-
-		m_DirtyCheats = false;
+		if (!bIsInitialUpdate) m_DirtyCheats = false;
 	}
 
-	outBitStream->Write(m_DirtyEquippedItemInfo);
-	if (m_DirtyEquippedItemInfo) {
-		outBitStream->Write(m_PickupRadius);
-		outBitStream->Write(m_InJetpackMode);
-		m_DirtyEquippedItemInfo = false;
+	outBitStream.Write(m_DirtyEquippedItemInfo || bIsInitialUpdate);
+	if (m_DirtyEquippedItemInfo || bIsInitialUpdate) {
+		outBitStream.Write(m_PickupRadius);
+		outBitStream.Write(m_InJetpackMode);
+
+		if (!bIsInitialUpdate) m_DirtyEquippedItemInfo = false;
 	}
 
-	outBitStream->Write(m_DirtyBubble);
-	if (m_DirtyBubble) {
-		outBitStream->Write(m_IsInBubble);
+	outBitStream.Write(m_DirtyBubble || bIsInitialUpdate);
+	if (m_DirtyBubble || bIsInitialUpdate) {
+		outBitStream.Write(m_IsInBubble);
 		if (m_IsInBubble) {
-			outBitStream->Write(m_BubbleType);
-			outBitStream->Write(m_SpecialAnims);
+			outBitStream.Write(m_BubbleType);
+			outBitStream.Write(m_SpecialAnims);
 		}
-		m_DirtyBubble = false;
+
+		if (!bIsInitialUpdate) m_DirtyBubble = false;
 	}
 
-	outBitStream->Write(m_DirtyPosition || bIsInitialUpdate);
+	outBitStream.Write(m_DirtyPosition || bIsInitialUpdate);
 	if (m_DirtyPosition || bIsInitialUpdate) {
-		outBitStream->Write(m_Position.x);
-		outBitStream->Write(m_Position.y);
-		outBitStream->Write(m_Position.z);
+		outBitStream.Write(m_Position.x);
+		outBitStream.Write(m_Position.y);
+		outBitStream.Write(m_Position.z);
 
-		outBitStream->Write(m_Rotation.x);
-		outBitStream->Write(m_Rotation.y);
-		outBitStream->Write(m_Rotation.z);
-		outBitStream->Write(m_Rotation.w);
+		outBitStream.Write(m_Rotation.x);
+		outBitStream.Write(m_Rotation.y);
+		outBitStream.Write(m_Rotation.z);
+		outBitStream.Write(m_Rotation.w);
 
-		outBitStream->Write(m_IsOnGround);
-		outBitStream->Write(m_IsOnRail);
+		outBitStream.Write(m_IsOnGround);
+		outBitStream.Write(m_IsOnRail);
 
-		outBitStream->Write(m_DirtyVelocity);
-		if (m_DirtyVelocity) {
-			outBitStream->Write(m_Velocity.x);
-			outBitStream->Write(m_Velocity.y);
-			outBitStream->Write(m_Velocity.z);
+		bool isNotZero = m_Velocity != NiPoint3Constant::ZERO;
+		outBitStream.Write(isNotZero);
+		if (isNotZero) {
+			outBitStream.Write(m_Velocity.x);
+			outBitStream.Write(m_Velocity.y);
+			outBitStream.Write(m_Velocity.z);
 		}
 
-		outBitStream->Write(m_DirtyAngularVelocity);
-		if (m_DirtyAngularVelocity) {
-			outBitStream->Write(m_AngularVelocity.x);
-			outBitStream->Write(m_AngularVelocity.y);
-			outBitStream->Write(m_AngularVelocity.z);
+		isNotZero = m_AngularVelocity != NiPoint3Constant::ZERO;
+		outBitStream.Write(isNotZero);
+		if (isNotZero) {
+			outBitStream.Write(m_AngularVelocity.x);
+			outBitStream.Write(m_AngularVelocity.y);
+			outBitStream.Write(m_AngularVelocity.z);
 		}
 
-		outBitStream->Write0();
-	}
+		outBitStream.Write0(); // local_space_info, always zero for now.
 
-	if (!bIsInitialUpdate) {
-		outBitStream->Write(m_IsTeleporting);
-		m_IsTeleporting = false;
+		if (!bIsInitialUpdate) {
+			m_DirtyPosition = false;
+			outBitStream.Write(m_IsTeleporting);
+			m_IsTeleporting = false;
+		}
 	}
 }
 
-void ControllablePhysicsComponent::LoadFromXml(tinyxml2::XMLDocument* doc) {
-	tinyxml2::XMLElement* character = doc->FirstChildElement("obj")->FirstChildElement("char");
+void ControllablePhysicsComponent::LoadFromXml(const tinyxml2::XMLDocument& doc) {
+	auto* character = doc.FirstChildElement("obj")->FirstChildElement("char");
 	if (!character) {
-		Game::logger->Log("ControllablePhysicsComponent", "Failed to find char tag!");
+		LOG("Failed to find char tag!");
 		return;
 	}
 
@@ -181,22 +178,16 @@ void ControllablePhysicsComponent::LoadFromXml(tinyxml2::XMLDocument* doc) {
 	m_DirtyPosition = true;
 }
 
-void ControllablePhysicsComponent::ResetFlags() {
-	m_DirtyAngularVelocity = false;
-	m_DirtyPosition = false;
-	m_DirtyVelocity = false;
-}
-
-void ControllablePhysicsComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
-	tinyxml2::XMLElement* character = doc->FirstChildElement("obj")->FirstChildElement("char");
+void ControllablePhysicsComponent::UpdateXml(tinyxml2::XMLDocument& doc) {
+	tinyxml2::XMLElement* character = doc.FirstChildElement("obj")->FirstChildElement("char");
 	if (!character) {
-		Game::logger->Log("ControllablePhysicsComponent", "Failed to find char tag while updating XML!");
+		LOG("Failed to find char tag while updating XML!");
 		return;
 	}
 
-	auto zoneInfo = dZoneManager::Instance()->GetZone()->GetZoneID();
+	auto zoneInfo = Game::zoneManager->GetZone()->GetZoneID();
 
-	if (zoneInfo.GetMapID() != 0 && zoneInfo.GetCloneID() == 0) {
+	if (zoneInfo.GetMapID() != 0 && zoneInfo.GetCloneID() == 0 && !Game::zoneManager->GetDisableSaveLocation()) {
 		character->SetAttribute("lzx", m_Position.x);
 		character->SetAttribute("lzy", m_Position.y);
 		character->SetAttribute("lzz", m_Position.z);
@@ -208,57 +199,41 @@ void ControllablePhysicsComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
 }
 
 void ControllablePhysicsComponent::SetPosition(const NiPoint3& pos) {
-	if (m_Static) {
-		return;
-	}
-
-	m_Position.x = pos.x;
-	m_Position.y = pos.y;
-	m_Position.z = pos.z;
-	m_DirtyPosition = true;
-
+	if (m_Static) return;
+	PhysicsComponent::SetPosition(pos);
 	if (m_dpEntity) m_dpEntity->SetPosition(pos);
 }
 
 void ControllablePhysicsComponent::SetRotation(const NiQuaternion& rot) {
-	if (m_Static) {
-		return;
-	}
-
-	m_Rotation = rot;
-	m_DirtyPosition = true;
-
+	if (m_Static) return;
+	PhysicsComponent::SetRotation(rot);
 	if (m_dpEntity) m_dpEntity->SetRotation(rot);
 }
 
 void ControllablePhysicsComponent::SetVelocity(const NiPoint3& vel) {
-	if (m_Static) {
-		return;
-	}
+	if (m_Static || m_Velocity == vel) return;
 
 	m_Velocity = vel;
 	m_DirtyPosition = true;
-	m_DirtyVelocity = true;
 
 	if (m_dpEntity) m_dpEntity->SetVelocity(vel);
 }
 
 void ControllablePhysicsComponent::SetAngularVelocity(const NiPoint3& vel) {
-	if (m_Static) {
-		return;
-	}
+	if (m_Static || m_AngularVelocity == vel) return;
 
 	m_AngularVelocity = vel;
 	m_DirtyPosition = true;
-	m_DirtyAngularVelocity = true;
 }
 
 void ControllablePhysicsComponent::SetIsOnGround(bool val) {
+	if (m_IsOnGround == val) return;
 	m_DirtyPosition = true;
 	m_IsOnGround = val;
 }
 
 void ControllablePhysicsComponent::SetIsOnRail(bool val) {
+	if (m_IsOnRail == val) return;
 	m_DirtyPosition = true;
 	m_IsOnRail = val;
 }
@@ -266,15 +241,6 @@ void ControllablePhysicsComponent::SetIsOnRail(bool val) {
 void ControllablePhysicsComponent::SetDirtyPosition(bool val) {
 	m_DirtyPosition = val;
 }
-
-void ControllablePhysicsComponent::SetDirtyVelocity(bool val) {
-	m_DirtyVelocity = val;
-}
-
-void ControllablePhysicsComponent::SetDirtyAngularVelocity(bool val) {
-	m_DirtyAngularVelocity = val;
-}
-
 void ControllablePhysicsComponent::AddPickupRadiusScale(float value) {
 	m_ActivePickupRadiusScales.push_back(value);
 	if (value > m_PickupRadius) {
@@ -289,7 +255,7 @@ void ControllablePhysicsComponent::RemovePickupRadiusScale(float value) {
 	if (pos != m_ActivePickupRadiusScales.end()) {
 		m_ActivePickupRadiusScales.erase(pos);
 	} else {
-		Game::logger->LogDebug("ControllablePhysicsComponent", "Warning: Could not find pickup radius %f in list of active radii.  List has %i active radii.", value, m_ActivePickupRadiusScales.size());
+		LOG_DEBUG("Warning: Could not find pickup radius %f in list of active radii.  List has %i active radii.", value, m_ActivePickupRadiusScales.size());
 		return;
 	}
 
@@ -300,7 +266,7 @@ void ControllablePhysicsComponent::RemovePickupRadiusScale(float value) {
 		auto candidateRadius = m_ActivePickupRadiusScales[i];
 		if (m_PickupRadius < candidateRadius) m_PickupRadius = candidateRadius;
 	}
-	EntityManager::Instance()->SerializeEntity(m_Parent);
+	Game::entityManager->SerializeEntity(m_Parent);
 }
 
 void ControllablePhysicsComponent::AddSpeedboost(float value) {
@@ -314,7 +280,7 @@ void ControllablePhysicsComponent::RemoveSpeedboost(float value) {
 	if (pos != m_ActiveSpeedBoosts.end()) {
 		m_ActiveSpeedBoosts.erase(pos);
 	} else {
-		Game::logger->LogDebug("ControllablePhysicsComponent", "Warning: Could not find speedboost %f in list of active speedboosts.  List has %i active speedboosts.", value, m_ActiveSpeedBoosts.size());
+		LOG_DEBUG("Warning: Could not find speedboost %f in list of active speedboosts.  List has %i active speedboosts.", value, m_ActiveSpeedBoosts.size());
 		return;
 	}
 
@@ -327,25 +293,25 @@ void ControllablePhysicsComponent::RemoveSpeedboost(float value) {
 		m_SpeedBoost = m_ActiveSpeedBoosts.back();
 	}
 	SetSpeedMultiplier(m_SpeedBoost / 500.0f); // 500 being the base speed
-	EntityManager::Instance()->SerializeEntity(m_Parent);
+	Game::entityManager->SerializeEntity(m_Parent);
 }
 
-void ControllablePhysicsComponent::ActivateBubbleBuff(eBubbleType bubbleType, bool specialAnims){
+void ControllablePhysicsComponent::ActivateBubbleBuff(eBubbleType bubbleType, bool specialAnims) {
 	if (m_IsInBubble) {
-		Game::logger->Log("ControllablePhysicsComponent", "Already in bubble");
+		LOG("Already in bubble");
 		return;
 	}
 	m_BubbleType = bubbleType;
 	m_IsInBubble = true;
 	m_DirtyBubble = true;
 	m_SpecialAnims = specialAnims;
-	EntityManager::Instance()->SerializeEntity(m_Parent);
+	Game::entityManager->SerializeEntity(m_Parent);
 }
 
-void ControllablePhysicsComponent::DeactivateBubbleBuff(){
+void ControllablePhysicsComponent::DeactivateBubbleBuff() {
 	m_DirtyBubble = true;
 	m_IsInBubble = false;
-	EntityManager::Instance()->SerializeEntity(m_Parent);
+	Game::entityManager->SerializeEntity(m_Parent);
 };
 
 void ControllablePhysicsComponent::SetStunImmunity(
@@ -357,9 +323,9 @@ void ControllablePhysicsComponent::SetStunImmunity(
 	const bool bImmuneToStunJump,
 	const bool bImmuneToStunMove,
 	const bool bImmuneToStunTurn,
-	const bool bImmuneToStunUseItem){
+	const bool bImmuneToStunUseItem) {
 
-	if (state == eStateChangeType::POP){
+	if (state == eStateChangeType::POP) {
 		if (bImmuneToStunAttack && m_ImmuneToStunAttackCount > 0) 		m_ImmuneToStunAttackCount -= 1;
 		if (bImmuneToStunEquip && m_ImmuneToStunEquipCount > 0) 		m_ImmuneToStunEquipCount -= 1;
 		if (bImmuneToStunInteract && m_ImmuneToStunInteractCount > 0) 	m_ImmuneToStunInteractCount -= 1;

@@ -7,48 +7,55 @@ set(DSCRIPTS_SOURCES
 	"BaseWavesGenericEnemy.cpp"
 	"BaseWavesServer.cpp"
 	"ChooseYourDestinationNsToNt.cpp"
-	"CppScripts.cpp"
 	"Darkitect.cpp"
+	"InvalidScript.cpp"
 	"NPCAddRemoveItem.cpp"
 	"NtFactionSpyServer.cpp"
-	"ScriptComponent.cpp"
 	"ScriptedPowerupSpawner.cpp"
 	"SpawnPetBaseServer.cpp")
 
+link_libraries(dDatabase dPhysics)
+
+add_library(dScriptsBase OBJECT ${DSCRIPTS_SOURCES})
+target_link_libraries(dScriptsBase INTERFACE dGameBase dComponents)
+target_precompile_headers(dScriptsBase PRIVATE ${HEADERS_DGAME})
+
+include_directories(
+	"${PROJECT_SOURCE_DIR}/dScripts"
+	"${PROJECT_SOURCE_DIR}/dGame"
+	"${PROJECT_SOURCE_DIR}/dGame/dComponents" # e.g. ScriptedActivityComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dGameMessages" # e.g. direct ActivityManager
+	"${PROJECT_SOURCE_DIR}/dGame/dUtilities" # e.g. direct ActivityManager
+	"${PROJECT_SOURCE_DIR}/dGame/dEntity" # via dZoneManager.h
+	"${PROJECT_SOURCE_DIR}/dGame/dMission" # via MissionComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dBehaviors" # viaInventoryComponent.h
+	"${PROJECT_SOURCE_DIR}/dGame/dInventory" # via InventoryComponent.h
+	"${PROJECT_SOURCE_DIR}/dZoneManager"
+)
+
 add_subdirectory(02_server)
-
-foreach(file ${DSCRIPTS_SOURCES_02_SERVER})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "02_server/${file}")
-endforeach()
-
 add_subdirectory(ai)
-
-foreach(file ${DSCRIPTS_SOURCES_AI})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "ai/${file}")
-endforeach()
-
 add_subdirectory(client)
-
-foreach(file ${DSCRIPTS_SOURCES_CLIENT})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "client/${file}")
-endforeach()
-
 add_subdirectory(EquipmentScripts)
-
-foreach(file ${DSCRIPTS_SOURCES_EQUIPMENTSCRIPTS})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "EquipmentScripts/${file}")
-endforeach()
-
 add_subdirectory(EquipmentTriggers)
-
-foreach(file ${DSCRIPTS_SOURCES_EQUIPMENTTRIGGERSSCRIPTS})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "EquipmentTriggers/${file}")
-endforeach()
-
 add_subdirectory(zone)
 
-foreach(file ${DSCRIPTS_SOURCES_ZONE})
-	set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} "zone/${file}")
-endforeach()
-
-set(DSCRIPTS_SOURCES ${DSCRIPTS_SOURCES} PARENT_SCOPE)
+add_library(dScripts STATIC
+	$<TARGET_OBJECTS:dScriptsBase>
+	$<TARGET_OBJECTS:dScriptsClient>
+	$<TARGET_OBJECTS:dScriptsEquipmentScripts>
+	$<TARGET_OBJECTS:dScriptsEquipmentTriggers>
+	$<TARGET_OBJECTS:dScriptsZone>
+	"CppScripts.cpp"
+)
+target_link_libraries(dScripts PRIVATE dScriptsAI dScriptsServer)
+target_include_directories(dScripts PRIVATE
+	$<TARGET_PROPERTY:dScriptsBase,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsServer,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsAI,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsClient,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsEquipmentScripts,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsEquipmentTriggers,INTERFACE_INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:dScriptsZone,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_precompile_headers(dScripts REUSE_FROM dScriptsBase)

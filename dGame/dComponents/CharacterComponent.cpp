@@ -1,8 +1,8 @@
 #include "CharacterComponent.h"
-#include <BitStream.h>
+#include "BitStream.h"
 #include "tinyxml2.h"
 #include "Game.h"
-#include "dLogger.h"
+#include "Logger.h"
 #include "GeneralUtils.h"
 #include "dServer.h"
 #include "dZoneManager.h"
@@ -10,14 +10,21 @@
 #include "InventoryComponent.h"
 #include "ControllablePhysicsComponent.h"
 #include "EntityManager.h"
-#include "VehiclePhysicsComponent.h"
+#include "HavokVehiclePhysicsComponent.h"
 #include "GameMessages.h"
 #include "Item.h"
 #include "Amf3.h"
 #include "eGameMasterLevel.h"
 #include "eGameActivity.h"
+#include "User.h"
+#include "Database.h"
+#include "CDRewardCodesTable.h"
+#include "Mail.h"
+#include "ZoneInstanceManager.h"
+#include "WorldPackets.h"
+#include <ctime>
 
-CharacterComponent::CharacterComponent(Entity* parent, Character* character) : Component(parent) {
+CharacterComponent::CharacterComponent(Entity* parent, Character* character, const SystemAddress& systemAddress) : Component(parent) {
 	m_Character = character;
 
 	m_IsRacing = false;
@@ -39,6 +46,7 @@ CharacterComponent::CharacterComponent(Entity* parent, Character* character) : C
 	m_CurrentActivity = eGameActivity::NONE;
 	m_CountryCode = 0;
 	m_LastUpdateTimestamp = std::time(nullptr);
+	m_SystemAddress = systemAddress;
 }
 
 bool CharacterComponent::LandingAnimDisabled(int zoneID) {
@@ -70,90 +78,94 @@ bool CharacterComponent::LandingAnimDisabled(int zoneID) {
 CharacterComponent::~CharacterComponent() {
 }
 
-void CharacterComponent::Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags) {
+void CharacterComponent::Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) {
 
 	if (bIsInitialUpdate) {
-		outBitStream->Write0();
-		outBitStream->Write0();
-		outBitStream->Write0();
-		outBitStream->Write0();
+		outBitStream.Write(m_ClaimCodes[0] != 0);
+		if (m_ClaimCodes[0] != 0) outBitStream.Write(m_ClaimCodes[0]);
+		outBitStream.Write(m_ClaimCodes[1] != 0);
+		if (m_ClaimCodes[1] != 0) outBitStream.Write(m_ClaimCodes[1]);
+		outBitStream.Write(m_ClaimCodes[2] != 0);
+		if (m_ClaimCodes[2] != 0) outBitStream.Write(m_ClaimCodes[2]);
+		outBitStream.Write(m_ClaimCodes[3] != 0);
+		if (m_ClaimCodes[3] != 0) outBitStream.Write(m_ClaimCodes[3]);
 
-		outBitStream->Write(m_Character->GetHairColor());
-		outBitStream->Write(m_Character->GetHairStyle());
-		outBitStream->Write<uint32_t>(0); //Default "head"
-		outBitStream->Write(m_Character->GetShirtColor());
-		outBitStream->Write(m_Character->GetPantsColor());
-		outBitStream->Write(m_Character->GetShirtStyle());
-		outBitStream->Write<uint32_t>(0); //Default "head color"
-		outBitStream->Write(m_Character->GetEyebrows());
-		outBitStream->Write(m_Character->GetEyes());
-		outBitStream->Write(m_Character->GetMouth());
-		outBitStream->Write<uint64_t>(0); //AccountID, trying out if 0 works.
-		outBitStream->Write(m_Character->GetLastLogin()); //Last login
-		outBitStream->Write<uint64_t>(0); //"prop mod last display time"
-		outBitStream->Write<uint64_t>(m_Uscore); //u-score
-		outBitStream->Write0(); //Not free-to-play (disabled in DLU)
+		outBitStream.Write(m_Character->GetHairColor());
+		outBitStream.Write(m_Character->GetHairStyle());
+		outBitStream.Write<uint32_t>(0); //Default "head"
+		outBitStream.Write(m_Character->GetShirtColor());
+		outBitStream.Write(m_Character->GetPantsColor());
+		outBitStream.Write(m_Character->GetShirtStyle());
+		outBitStream.Write<uint32_t>(0); //Default "head color"
+		outBitStream.Write(m_Character->GetEyebrows());
+		outBitStream.Write(m_Character->GetEyes());
+		outBitStream.Write(m_Character->GetMouth());
+		outBitStream.Write<uint64_t>(0); //AccountID, trying out if 0 works.
+		outBitStream.Write(m_Character->GetLastLogin()); //Last login
+		outBitStream.Write<uint64_t>(0); //"prop mod last display time"
+		outBitStream.Write<uint64_t>(m_Uscore); //u-score
+		outBitStream.Write0(); //Not free-to-play (disabled in DLU)
 
 		//Stats:
-		outBitStream->Write(m_CurrencyCollected);
-		outBitStream->Write(m_BricksCollected);
-		outBitStream->Write(m_SmashablesSmashed);
-		outBitStream->Write(m_QuickBuildsCompleted);
-		outBitStream->Write(m_EnemiesSmashed);
-		outBitStream->Write(m_RocketsUsed);
-		outBitStream->Write(m_MissionsCompleted);
-		outBitStream->Write(m_PetsTamed);
-		outBitStream->Write(m_ImaginationPowerUpsCollected);
-		outBitStream->Write(m_LifePowerUpsCollected);
-		outBitStream->Write(m_ArmorPowerUpsCollected);
-		outBitStream->Write(m_MetersTraveled);
-		outBitStream->Write(m_TimesSmashed);
-		outBitStream->Write(m_TotalDamageTaken);
-		outBitStream->Write(m_TotalDamageHealed);
-		outBitStream->Write(m_TotalArmorRepaired);
-		outBitStream->Write(m_TotalImaginationRestored);
-		outBitStream->Write(m_TotalImaginationUsed);
-		outBitStream->Write(m_DistanceDriven);
-		outBitStream->Write(m_TimeAirborneInCar);
-		outBitStream->Write(m_RacingImaginationPowerUpsCollected);
-		outBitStream->Write(m_RacingImaginationCratesSmashed);
-		outBitStream->Write(m_RacingCarBoostsActivated);
-		outBitStream->Write(m_RacingTimesWrecked);
-		outBitStream->Write(m_RacingSmashablesSmashed);
-		outBitStream->Write(m_RacesFinished);
-		outBitStream->Write(m_FirstPlaceRaceFinishes);
+		outBitStream.Write(m_CurrencyCollected);
+		outBitStream.Write(m_BricksCollected);
+		outBitStream.Write(m_SmashablesSmashed);
+		outBitStream.Write(m_QuickBuildsCompleted);
+		outBitStream.Write(m_EnemiesSmashed);
+		outBitStream.Write(m_RocketsUsed);
+		outBitStream.Write(m_MissionsCompleted);
+		outBitStream.Write(m_PetsTamed);
+		outBitStream.Write(m_ImaginationPowerUpsCollected);
+		outBitStream.Write(m_LifePowerUpsCollected);
+		outBitStream.Write(m_ArmorPowerUpsCollected);
+		outBitStream.Write(m_MetersTraveled);
+		outBitStream.Write(m_TimesSmashed);
+		outBitStream.Write(m_TotalDamageTaken);
+		outBitStream.Write(m_TotalDamageHealed);
+		outBitStream.Write(m_TotalArmorRepaired);
+		outBitStream.Write(m_TotalImaginationRestored);
+		outBitStream.Write(m_TotalImaginationUsed);
+		outBitStream.Write(m_DistanceDriven);
+		outBitStream.Write(m_TimeAirborneInCar);
+		outBitStream.Write(m_RacingImaginationPowerUpsCollected);
+		outBitStream.Write(m_RacingImaginationCratesSmashed);
+		outBitStream.Write(m_RacingCarBoostsActivated);
+		outBitStream.Write(m_RacingTimesWrecked);
+		outBitStream.Write(m_RacingSmashablesSmashed);
+		outBitStream.Write(m_RacesFinished);
+		outBitStream.Write(m_FirstPlaceRaceFinishes);
 
-		outBitStream->Write0();
-		outBitStream->Write(m_IsLanding);
+		outBitStream.Write0();
+		outBitStream.Write(m_IsLanding);
 		if (m_IsLanding) {
-			outBitStream->Write(uint16_t(m_LastRocketConfig.size()));
+			outBitStream.Write<uint16_t>(m_LastRocketConfig.size());
 			for (uint16_t character : m_LastRocketConfig) {
-				outBitStream->Write(character);
+				outBitStream.Write(character);
 			}
 		}
 	}
 
-	outBitStream->Write(m_DirtyGMInfo);
+	outBitStream.Write(m_DirtyGMInfo);
 	if (m_DirtyGMInfo) {
-		outBitStream->Write(m_PvpEnabled);
-		outBitStream->Write(m_IsGM);
-		outBitStream->Write(m_GMLevel);
-		outBitStream->Write(m_EditorEnabled);
-		outBitStream->Write(m_EditorLevel);
+		outBitStream.Write(m_PvpEnabled);
+		outBitStream.Write(m_IsGM);
+		outBitStream.Write(m_GMLevel);
+		outBitStream.Write(m_EditorEnabled);
+		outBitStream.Write(m_EditorLevel);
 	}
 
-	outBitStream->Write(m_DirtyCurrentActivity);
-	if (m_DirtyCurrentActivity) outBitStream->Write(m_CurrentActivity);
+	outBitStream.Write(m_DirtyCurrentActivity);
+	if (m_DirtyCurrentActivity) outBitStream.Write(m_CurrentActivity);
 
-	outBitStream->Write(m_DirtySocialInfo);
+	outBitStream.Write(m_DirtySocialInfo);
 	if (m_DirtySocialInfo) {
-		outBitStream->Write(m_GuildID);
-		outBitStream->Write<unsigned char>(static_cast<unsigned char>(m_GuildName.size()));
+		outBitStream.Write(m_GuildID);
+		outBitStream.Write<unsigned char>(m_GuildName.size());
 		if (!m_GuildName.empty())
-			outBitStream->WriteBits(reinterpret_cast<const unsigned char*>(m_GuildName.c_str()), static_cast<unsigned char>(m_GuildName.size()) * sizeof(wchar_t) * 8);
+			outBitStream.WriteBits(reinterpret_cast<const unsigned char*>(m_GuildName.c_str()), static_cast<unsigned char>(m_GuildName.size()) * sizeof(wchar_t) * 8);
 
-		outBitStream->Write(m_IsLEGOClubMember);
-		outBitStream->Write(m_CountryCode);
+		outBitStream.Write(m_IsLEGOClubMember);
+		outBitStream.Write(m_CountryCode);
 	}
 }
 
@@ -174,16 +186,23 @@ void CharacterComponent::SetGMLevel(eGameMasterLevel gmlevel) {
 	m_GMLevel = gmlevel;
 }
 
-void CharacterComponent::LoadFromXml(tinyxml2::XMLDocument* doc) {
+void CharacterComponent::LoadFromXml(const tinyxml2::XMLDocument& doc) {
 
-	tinyxml2::XMLElement* character = doc->FirstChildElement("obj")->FirstChildElement("char");
+	auto* character = doc.FirstChildElement("obj")->FirstChildElement("char");
 	if (!character) {
-		Game::logger->Log("CharacterComponent", "Failed to find char tag while loading XML!");
+		LOG("Failed to find char tag while loading XML!");
 		return;
 	}
 	if (character->QueryAttribute("rpt", &m_Reputation) == tinyxml2::XML_NO_ATTRIBUTE) {
 		SetReputation(0);
 	}
+
+	character->QueryUnsigned64Attribute("co", &m_ClaimCodes[0]);
+	character->QueryUnsigned64Attribute("co1", &m_ClaimCodes[1]);
+	character->QueryUnsigned64Attribute("co2", &m_ClaimCodes[2]);
+	character->QueryUnsigned64Attribute("co3", &m_ClaimCodes[3]);
+
+	AwardClaimCodes();
 
 	character->QueryInt64Attribute("ls", &m_Uscore);
 
@@ -213,7 +232,7 @@ void CharacterComponent::LoadFromXml(tinyxml2::XMLDocument* doc) {
 			uint32_t mapID;
 			child->QueryAttribute("map", &mapID);
 
-			m_ZoneStatistics.insert({ (LWOMAPID)mapID, statistics });
+			m_ZoneStatistics.insert({ static_cast<LWOMAPID>(mapID), statistics });
 
 			child = child->NextSiblingElement();
 		}
@@ -280,10 +299,10 @@ void CharacterComponent::LoadFromXml(tinyxml2::XMLDocument* doc) {
 	}
 }
 
-void CharacterComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
-	tinyxml2::XMLElement* minifig = doc->FirstChildElement("obj")->FirstChildElement("mf");
+void CharacterComponent::UpdateXml(tinyxml2::XMLDocument& doc) {
+	tinyxml2::XMLElement* minifig = doc.FirstChildElement("obj")->FirstChildElement("mf");
 	if (!minifig) {
-		Game::logger->Log("CharacterComponent", "Failed to find mf tag while updating XML!");
+		LOG("Failed to find mf tag while updating XML!");
 		return;
 	}
 
@@ -301,11 +320,16 @@ void CharacterComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
 
 	// done with minifig
 
-	tinyxml2::XMLElement* character = doc->FirstChildElement("obj")->FirstChildElement("char");
+	tinyxml2::XMLElement* character = doc.FirstChildElement("obj")->FirstChildElement("char");
 	if (!character) {
-		Game::logger->Log("CharacterComponent", "Failed to find char tag while updating XML!");
+		LOG("Failed to find char tag while updating XML!");
 		return;
 	}
+
+	if (m_ClaimCodes[0] != 0) character->SetAttribute("co", m_ClaimCodes[0]);
+	if (m_ClaimCodes[1] != 0) character->SetAttribute("co1", m_ClaimCodes[1]);
+	if (m_ClaimCodes[2] != 0) character->SetAttribute("co2", m_ClaimCodes[2]);
+	if (m_ClaimCodes[3] != 0) character->SetAttribute("co3", m_ClaimCodes[3]);
 
 	character->SetAttribute("ls", m_Uscore);
 	// Custom attribute to keep track of reputation.
@@ -314,11 +338,11 @@ void CharacterComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
 
 	// Set the zone statistics of the form <zs><s/> ... <s/></zs>
 	auto zoneStatistics = character->FirstChildElement("zs");
-	if (!zoneStatistics) zoneStatistics = doc->NewElement("zs");
+	if (!zoneStatistics) zoneStatistics = doc.NewElement("zs");
 	zoneStatistics->DeleteChildren();
 
 	for (auto pair : m_ZoneStatistics) {
-		auto zoneStatistic = doc->NewElement("s");
+		auto zoneStatistic = doc.NewElement("s");
 
 		zoneStatistic->SetAttribute("map", pair.first);
 		zoneStatistic->SetAttribute("ac", pair.second.m_AchievementsCollected);
@@ -351,7 +375,7 @@ void CharacterComponent::UpdateXml(tinyxml2::XMLDocument* doc) {
 	//
 
 	auto newUpdateTimestamp = std::time(nullptr);
-	Game::logger->Log("TotalTimePlayed", "Time since last save: %d", newUpdateTimestamp - m_LastUpdateTimestamp);
+	LOG("Time since last save: %d", newUpdateTimestamp - m_LastUpdateTimestamp);
 
 	m_TotalTimePlayed += newUpdateTimestamp - m_LastUpdateTimestamp;
 	character->SetAttribute("time", m_TotalTimePlayed);
@@ -381,7 +405,7 @@ Item* CharacterComponent::GetRocket(Entity* player) {
 	}
 
 	if (!rocket) {
-		Game::logger->Log("CharacterComponent", "Unable to find rocket to equip!");
+		LOG("Unable to find rocket to equip!");
 		return rocket;
 	}
 	return rocket;
@@ -419,7 +443,7 @@ void CharacterComponent::TrackMissionCompletion(bool isAchievement) {
 
 	// Achievements are tracked separately for the zone
 	if (isAchievement) {
-		const auto mapID = dZoneManager::Instance()->GetZoneID().GetMapID();
+		const auto mapID = Game::zoneManager->GetZoneID().GetMapID();
 		GetZoneStatisticsForMap(mapID).m_AchievementsCollected++;
 	}
 }
@@ -477,10 +501,10 @@ void CharacterComponent::TrackArmorDelta(int32_t armor) {
 	}
 }
 
-void CharacterComponent::TrackRebuildComplete() {
+void CharacterComponent::TrackQuickBuildComplete() {
 	UpdatePlayerStatistic(QuickBuildsCompleted);
 
-	const auto mapID = dZoneManager::Instance()->GetZoneID().GetMapID();
+	const auto mapID = Game::zoneManager->GetZoneID().GetMapID();
 	GetZoneStatisticsForMap(mapID).m_QuickBuildsCompleted++;
 }
 
@@ -494,9 +518,9 @@ void CharacterComponent::TrackPositionUpdate(const NiPoint3& newPosition) {
 	const auto distance = NiPoint3::Distance(newPosition, m_Parent->GetPosition());
 
 	if (m_IsRacing) {
-		UpdatePlayerStatistic(DistanceDriven, (uint64_t)distance);
+		UpdatePlayerStatistic(DistanceDriven, static_cast<uint64_t>(distance));
 	} else {
-		UpdatePlayerStatistic(MetersTraveled, (uint64_t)distance);
+		UpdatePlayerStatistic(MetersTraveled, static_cast<uint64_t>(distance));
 	}
 }
 
@@ -699,7 +723,7 @@ std::string CharacterComponent::StatisticsToString() const {
 }
 
 uint64_t CharacterComponent::GetStatisticFromSplit(std::vector<std::string> split, uint32_t index) {
-	return split.size() > index ? std::stoul(split.at(index)) : 0;
+	return split.size() > index ? std::stoull(split.at(index)) : 0;
 }
 
 ZoneStatistics& CharacterComponent::GetZoneStatisticsForMap(LWOMAPID mapID) {
@@ -736,4 +760,78 @@ void CharacterComponent::UpdateClientMinimap(bool showFaction, std::string ventu
 	AMFArrayValue arrayToSend;
 	arrayToSend.Insert(ventureVisionType, showFaction);
 	GameMessages::SendUIMessageServerToSingleClient(m_Parent, m_Parent ? m_Parent->GetSystemAddress() : UNASSIGNED_SYSTEM_ADDRESS, "SetFactionVisibility", arrayToSend);
+}
+
+void CharacterComponent::AwardClaimCodes() {
+	if (!m_Parent || !m_Parent->GetCharacter()) return;
+	auto* user = m_Parent->GetCharacter()->GetParentUser();
+	if (!user) return;
+
+	auto rewardCodes = Database::Get()->GetRewardCodesByAccountID(user->GetAccountID());
+	if (rewardCodes.empty()) return;
+
+	auto* cdrewardCodes = CDClientManager::GetTable<CDRewardCodesTable>();
+	for (auto const rewardCode : rewardCodes) {
+		LOG_DEBUG("Processing RewardCode %i", rewardCode);
+		const uint32_t rewardCodeIndex = rewardCode >> 6;
+		const uint32_t bitIndex = rewardCode % 64;
+		if (GeneralUtils::CheckBit(m_ClaimCodes[rewardCodeIndex], bitIndex)) continue;
+		m_ClaimCodes[rewardCodeIndex] = GeneralUtils::SetBit(m_ClaimCodes[rewardCodeIndex], bitIndex);
+
+		// Don't send it on this one since it's default and the mail doesn't make sense
+		if (rewardCode == 30) continue;
+
+		auto attachmentLOT = cdrewardCodes->GetAttachmentLOT(rewardCode);
+		std::ostringstream subject;
+		subject << "%[RewardCodes_" << rewardCode << "_subjectText]";
+		std::ostringstream body;
+		body << "%[RewardCodes_" << rewardCode << "_bodyText]";
+		Mail::SendMail(LWOOBJID_EMPTY, "%[MAIL_SYSTEM_NOTIFICATION]", m_Parent, subject.str(), body.str(), attachmentLOT, 1);
+	}
+}
+
+void CharacterComponent::SendToZone(LWOMAPID zoneId, LWOCLONEID cloneId) const {
+	const auto objid = m_Parent->GetObjectID();
+
+	ZoneInstanceManager::Instance()->RequestZoneTransfer(Game::server, zoneId, cloneId, false, [objid](bool mythranShift, uint32_t zoneID, uint32_t zoneInstance, uint32_t zoneClone, std::string serverIP, uint16_t serverPort) {
+		auto* entity = Game::entityManager->GetEntity(objid);
+
+		if (!entity) return;
+
+		const auto sysAddr = entity->GetSystemAddress();
+
+		auto* character = entity->GetCharacter();
+		auto* characterComponent = entity->GetComponent<CharacterComponent>();
+
+		if (character && characterComponent) {
+			character->SetZoneID(zoneID);
+			character->SetZoneInstance(zoneInstance);
+			character->SetZoneClone(zoneClone);
+
+			characterComponent->SetLastRocketConfig(u"");
+
+			character->SaveXMLToDatabase();
+		}
+
+		WorldPackets::SendTransferToWorld(sysAddr, serverIP, serverPort, mythranShift);
+
+		Game::entityManager->DestructEntity(entity);
+		});
+}
+
+const SystemAddress& CharacterComponent::GetSystemAddress() const {
+	return m_SystemAddress;
+}
+
+void CharacterComponent::SetRespawnPos(const NiPoint3& position) {
+	if (!m_Character) return;
+
+	m_respawnPos = position;
+
+	m_Character->SetRespawnPoint(Game::zoneManager->GetZone()->GetWorldID(), position);
+
+}
+
+void CharacterComponent::SetRespawnRot(const NiQuaternion& rotation) {
+	m_respawnRot = rotation;
 }

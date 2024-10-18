@@ -1,32 +1,27 @@
-#pragma once
+#ifndef PETCOMPONENT_H
+#define PETCOMPONENT_H
 
 #include "Entity.h"
 #include "MovementAIComponent.h"
 #include "Component.h"
 #include "Preconditions.h"
+#include "ePetAbilityType.h"
 #include "eReplicaComponentType.h"
-
-enum class PetAbilityType
-{
-	Invalid,
-	GoToObject,
-	JumpOnObject,
-	DigAtPosition
-};
+#include "CDPetComponentTable.h"
 
 /**
  * Represents an entity that is a pet. This pet can be tamed and consequently follows the tamer around, allowing it
  * to dig for treasure and activate pet bouncers.
  */
-class PetComponent : public Component
+class PetComponent final : public Component
 {
 public:
-	static const eReplicaComponentType ComponentType = eReplicaComponentType::PET;
+	static constexpr eReplicaComponentType ComponentType = eReplicaComponentType::PET;
 
 	explicit PetComponent(Entity* parentEntity, uint32_t componentId);
 	~PetComponent() override;
 
-	void Serialize(RakNet::BitStream* outBitStream, bool bIsInitialUpdate, unsigned int& flags);
+	void Serialize(RakNet::BitStream& outBitStream, bool bIsInitialUpdate) override;
 	void Update(float deltaTime) override;
 
 	/**
@@ -103,7 +98,7 @@ public:
 	 * @param typeId extra information about the command, e.g. the emote to play
 	 * @param overrideObey unused
 	 */
-	void Command(NiPoint3 position, LWOOBJID source, int32_t commandType, int32_t typeId, bool overrideObey);
+	void Command(const NiPoint3& position, const LWOOBJID source, const int32_t commandType, const int32_t typeId, const bool overrideObey);
 
 	/**
 	 * Returns the ID of the owner of this pet (if any)
@@ -158,19 +153,19 @@ public:
 	 * Returns an ability the pet may perform, currently unused
 	 * @return an ability the pet may perform
 	 */
-	PetAbilityType GetAbility() const;
+	ePetAbilityType GetAbility() const;
 
 	/**
 	 * Sets the ability of the pet, currently unused
 	 * @param value the ability to set
 	 */
-	void SetAbility(PetAbilityType value);
+	void SetAbility(ePetAbilityType value);
 
 	/**
 	 * Sets preconditions for the pet that need  to be met before it can be tamed
 	 * @param conditions the preconditions to set
 	 */
-	void SetPreconditions(std::string& conditions);
+	void SetPreconditions(const std::string& conditions);
 
 	/**
 	 * Returns the entity that this component belongs to
@@ -256,14 +251,9 @@ private:
 	static std::unordered_map<LWOOBJID, LWOOBJID> currentActivities;
 
 	/**
-	 * Cache of all the minigames and their information from the database
-	 */
-	static std::unordered_map<LOT, PetComponent::PetPuzzleData> buildCache;
-
-	/**
 	 * Flags that indicate that a player has tamed a pet, indexed by the LOT of the pet
 	 */
-	static std::map<LOT, int32_t> petFlags;
+	static const std::map<LOT, int32_t> petFlags;
 
 	/**
 	 * The ID of the component in the pet component table
@@ -323,7 +313,7 @@ private:
 	/**
 	 * A currently active ability, mostly unused
 	 */
-	PetAbilityType m_Ability;
+	ePetAbilityType m_Ability;
 
 	/**
 	 * The time an entity has left to complete the minigame
@@ -354,10 +344,12 @@ private:
 	/**
 	 * Preconditions that need to be met before an entity can tame this pet
 	 */
-	PreconditionExpression* m_Preconditions;
+	std::optional<PreconditionExpression> m_Preconditions{};
 
 	/**
-	 * The rate at which imagination is drained from the user for having the pet out.
+	 * Pet information loaded from the CDClientDatabase
 	 */
-	float imaginationDrainRate;
+	CDPetComponent m_PetInfo;
 };
+
+#endif // !PETCOMPONENT_H

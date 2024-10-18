@@ -7,7 +7,7 @@ void AgQbElevator::OnStartup(Entity* self) {
 }
 
 //when the QB is finished being built by a player
-void AgQbElevator::OnRebuildComplete(Entity* self, Entity* target) {
+void AgQbElevator::OnQuickBuildComplete(Entity* self, Entity* target) {
 	self->SetProximityRadius(proxRadius, "elevatorProx");
 	self->SetI64(u"qbPlayer", target->GetObjectID());
 
@@ -26,7 +26,7 @@ void AgQbElevator::OnProximityUpdate(Entity* self, Entity* entering, std::string
 	if (self->GetBoolean(u"qbPlayerRdy")) return;
 
 	if (status == "ENTER") {
-		Entity* builder = EntityManager::Instance()->GetEntity(self->GetI64(u"qbPlayer"));
+		Entity* builder = Game::entityManager->GetEntity(self->GetI64(u"qbPlayer"));
 		if (builder && builder == entering) {
 			//the builder has entered so cancel the start timer and just start moving
 			self->SetBoolean(u"qbPlayerRdy", true);

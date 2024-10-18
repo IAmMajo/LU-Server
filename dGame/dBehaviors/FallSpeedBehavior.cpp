@@ -5,16 +5,16 @@
 #include "BehaviorBranchContext.h"
 
 
-void FallSpeedBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitStream, BehaviorBranchContext branch) {
+void FallSpeedBehavior::Handle(BehaviorContext* context, RakNet::BitStream& bitStream, BehaviorBranchContext branch) {
 	// make sure required parameter has non-default value
 	if (m_PercentSlowed == 0.0f) return;
-	auto* target = EntityManager::Instance()->GetEntity(branch.target);
+	auto* target = Game::entityManager->GetEntity(branch.target);
 	if (!target) return;
 
 	auto* controllablePhysicsComponent = target->GetComponent<ControllablePhysicsComponent>();
 	if (!controllablePhysicsComponent) return;
 	controllablePhysicsComponent->SetGravityScale(m_PercentSlowed);
-	EntityManager::Instance()->SerializeEntity(target);
+	Game::entityManager->SerializeEntity(target);
 
 	if (branch.duration > 0.0f) {
 		context->RegisterTimerBehavior(this, branch);
@@ -23,7 +23,7 @@ void FallSpeedBehavior::Handle(BehaviorContext* context, RakNet::BitStream* bitS
 	}
 }
 
-void FallSpeedBehavior::Calculate(BehaviorContext* context, RakNet::BitStream* bitStream, BehaviorBranchContext branch) {
+void FallSpeedBehavior::Calculate(BehaviorContext* context, RakNet::BitStream& bitStream, BehaviorBranchContext branch) {
 	Handle(context, bitStream, branch);
 }
 
@@ -36,13 +36,13 @@ void FallSpeedBehavior::UnCast(BehaviorContext* context, BehaviorBranchContext b
 }
 
 void FallSpeedBehavior::End(BehaviorContext* context, BehaviorBranchContext branch, LWOOBJID second) {
-	auto* target = EntityManager::Instance()->GetEntity(branch.target);
+	auto* target = Game::entityManager->GetEntity(branch.target);
 	if (!target) return;
 
 	auto* controllablePhysicsComponent = target->GetComponent<ControllablePhysicsComponent>();
 	if (!controllablePhysicsComponent) return;
 	controllablePhysicsComponent->SetGravityScale(1);
-	EntityManager::Instance()->SerializeEntity(target);
+	Game::entityManager->SerializeEntity(target);
 }
 
 void FallSpeedBehavior::Load(){

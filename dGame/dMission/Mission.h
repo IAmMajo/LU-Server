@@ -17,6 +17,7 @@ namespace tinyxml2 {
 enum class eMissionState : int;
 enum class eMissionLockState : int;
 class MissionComponent;
+class Character;
 
 /**
  * A mission (or achievement) that a player may unlock, progress and complete.
@@ -27,8 +28,8 @@ public:
 	Mission(MissionComponent* missionComponent, uint32_t missionId);
 	~Mission();
 
-	void LoadFromXml(tinyxml2::XMLElement* element);
-	void UpdateXml(tinyxml2::XMLElement* element);
+	void LoadFromXml(const tinyxml2::XMLElement& element);
+	void UpdateXml(tinyxml2::XMLElement& element);
 
 	/**
 	 * Returns the ID of this mission
@@ -46,7 +47,7 @@ public:
 	 * Returns the account owns the entity that is currently progressing this mission
 	 * @return the account owns the entity that is currently progressing this mission
 	 */
-	User* GetUser() const;
+	Character* GetCharacter() const;
 
 	/**
 	 * Returns the current state of this mission
@@ -245,7 +246,7 @@ private:
 	/**
 	 * The database information that corresponds to this mission
 	 */
-	const CDMissions* info;
+	CDMissions info;
 
 	/**
 	 * The current state this mission is in

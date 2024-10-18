@@ -3,11 +3,13 @@
 #include "DestroyableComponent.h"
 #include "EntityManager.h"
 #include "dZoneManager.h"
-#include "Player.h"
+#include "CharacterComponent.h"
 #include "eMissionTaskType.h"
 #include "eMissionState.h"
 #include "MissionComponent.h"
 #include "Character.h"
+#include "Game.h"
+#include "dConfig.h"
 
 void BaseSurvivalServer::SetGameVariables(Entity* self) {
 	this->constants = std::move(GetConstants());
@@ -21,7 +23,8 @@ void BaseSurvivalServer::BasePlayerLoaded(Entity* self, Entity* player) {
 	const auto& playersIter = std::find(state.players.begin(), state.players.end(), player->GetObjectID());
 
 	if (waitingIter != state.waitingPlayers.end() || playersIter != state.players.end()) {
-		static_cast<Player*>(player)->SendToZone(player->GetCharacter()->GetLastNonInstanceZoneID());
+		auto* characterComponent = player->GetComponent<CharacterComponent>();
+		if (characterComponent) characterComponent->SendToZone(player->GetCharacter()->GetLastNonInstanceZoneID());
 
 		return;
 	}
@@ -113,7 +116,7 @@ void BaseSurvivalServer::BasePlayerExit(Entity* self, Entity* player) {
 
 	SetActivityValue(self, player->GetObjectID(), 1, 0);
 	self->SetNetworkVar<uint32_t>(NumberOfPlayersVariable,
-		std::min((uint32_t)0, self->GetNetworkVar<uint32_t>(NumberOfPlayersVariable) - 1));
+		std::min(static_cast<uint32_t>(0), self->GetNetworkVar<uint32_t>(NumberOfPlayersVariable) - 1));
 }
 
 void BaseSurvivalServer::BaseFireEvent(Entity* self, Entity* sender, const std::string& args, int32_t param1, int32_t param2,
@@ -159,8 +162,8 @@ void BaseSurvivalServer::BaseMessageBoxResponse(Entity* self, Entity* sender, in
 		if (sender->IsPlayer()) {
 			auto* character = sender->GetCharacter();
 			if (character != nullptr) {
-				auto* player = dynamic_cast<Player*>(sender);
-				player->SendToZone(character->GetLastNonInstanceZoneID());
+				auto* characterComponent = sender->GetComponent<CharacterComponent>();
+				if (characterComponent) characterComponent->SendToZone(character->GetLastNonInstanceZoneID());
 			}
 		}
 	}
@@ -212,7 +215,7 @@ void BaseSurvivalServer::OnActivityTimerDone(Entity* self, const std::string& na
 		ActivityTimerStart(self, PlaySpawnSoundTimer, 3, 3);
 	} else if (name == PlaySpawnSoundTimer) {
 		for (const auto& playerID : state.players) {
-			auto* player = EntityManager::Instance()->GetEntity(playerID);
+			auto* player = Game::entityManager->GetEntity(playerID);
 			if (player != nullptr) {
 				GameMessages::SendPlayNDAudioEmitter(player, player->GetSystemAddress(), spawnSoundGUID);
 			}
@@ -221,7 +224,7 @@ void BaseSurvivalServer::OnActivityTimerDone(Entity* self, const std::string& na
 }
 
 void BaseSurvivalServer::ResetStats(LWOOBJID playerID) {
-	auto* player = EntityManager::Instance()->GetEntity(playerID);
+	auto* player = Game::entityManager->GetEntity(playerID);
 	if (player != nullptr) {
 
 		// Boost all the player stats when loading in
@@ -284,7 +287,7 @@ void BaseSurvivalServer::StartWaves(Entity* self) {
 	state.waitingPlayers.clear();
 
 	for (const auto& playerID : state.players) {
-		const auto player = EntityManager::Instance()->GetEntity(playerID);
+		const auto player = Game::entityManager->GetEntity(playerID);
 		if (player != nullptr) {
 			state.waitingPlayers.push_back(playerID);
 			UpdatePlayer(self, playerID);
@@ -311,7 +314,7 @@ bool BaseSurvivalServer::CheckAllPlayersDead() {
 	auto deadPlayers = 0;
 
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player == nullptr || player->GetIsDead()) {
 			deadPlayers++;
 		}
@@ -323,9 +326,9 @@ bool BaseSurvivalServer::CheckAllPlayersDead() {
 void BaseSurvivalServer::SetPlayerSpawnPoints() {
 	auto spawnerIndex = 1;
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player != nullptr) {
-			auto possibleSpawners = EntityManager::Instance()->GetEntitiesInGroup("P" + std::to_string(spawnerIndex) + "_Spawn");
+			auto possibleSpawners = Game::entityManager->GetEntitiesInGroup("P" + std::to_string(spawnerIndex) + "_Spawn");
 			if (!possibleSpawners.empty()) {
 				auto* spawner = possibleSpawners.at(0);
 				GameMessages::SendTeleport(playerID, spawner->GetPosition(), spawner->GetRotation(), player->GetSystemAddress(), true);
@@ -348,12 +351,13 @@ void BaseSurvivalServer::GameOver(Entity* self) {
 	SpawnerReset(spawnerNetworks.rewardNetworks);
 
 	for (const auto& playerID : state.players) {
-		auto* player = EntityManager::Instance()->GetEntity(playerID);
+		auto* player = Game::entityManager->GetEntity(playerID);
 		if (player == nullptr)
 			continue;
 
 		const auto score = GetActivityValue(self, playerID, 0);
 		const auto time = GetActivityValue(self, playerID, 1);
+		SaveScore(self, playerID, score, time);
 
 		GameMessages::SendNotifyClientZoneObject(self->GetObjectID(), u"Update_ScoreBoard", time, 0,
 			playerID, std::to_string(score), UNASSIGNED_SYSTEM_ADDRESS);
@@ -367,7 +371,7 @@ void BaseSurvivalServer::GameOver(Entity* self) {
 
 			for (const auto& survivalMission : missionsToUpdate) {
 				auto* mission = missionComponent->GetMission(survivalMission.first);
-				if (mission != nullptr && (uint32_t)time >= survivalMission.second
+				if (mission != nullptr && static_cast<uint32_t>(time) >= survivalMission.second
 					&& (mission->GetMissionState() == eMissionState::ACTIVE
 						|| mission->GetMissionState() == eMissionState::COMPLETE_ACTIVE)) {
 
@@ -399,7 +403,7 @@ void BaseSurvivalServer::SpawnerReset(SpawnerNetworkCollection& spawnerNetworkCo
 
 	for (auto& spawner : spawnerNetworkCollection.networks) {
 		for (auto& spawnerName : spawner.names) {
-			auto spawners = dZoneManager::Instance()->GetSpawnersByName(spawnerName + spawner.number);
+			auto spawners = Game::zoneManager->GetSpawnersByName(spawnerName + spawner.number);
 			if (!spawners.empty()) {
 				auto* spawnerObject = spawners.at(0);
 
@@ -418,7 +422,7 @@ void BaseSurvivalServer::SpawnerReset(SpawnerNetworkCollection& spawnerNetworkCo
 		}
 	}
 
-	state.totalSpawned = std::max((uint32_t)totalSpawned, state.totalSpawned);
+	state.totalSpawned = std::max(static_cast<uint32_t>(totalSpawned), state.totalSpawned);
 }
 
 void BaseSurvivalServer::SpawnerUpdate(Entity* self, SpawnerNetworkCollection& spawnerNetworkCollection, uint32_t amount) {
@@ -428,7 +432,7 @@ void BaseSurvivalServer::SpawnerUpdate(Entity* self, SpawnerNetworkCollection& s
 	// If we want to spawn something specific now
 	if (amount != 0) {
 		auto spawnerNetwork = spawnerNetworkCollection.networks.at(0);
-		auto possibleSpawners = dZoneManager::Instance()->GetSpawnersByName(spawnerNetwork.names.at(0) + spawnerNetwork.number);
+		auto possibleSpawners = Game::zoneManager->GetSpawnersByName(spawnerNetwork.names.at(0) + spawnerNetwork.number);
 		if (!possibleSpawners.empty()) {
 			SpawnNow(possibleSpawners.at(0), amount);
 			return;
@@ -444,7 +448,7 @@ void BaseSurvivalServer::SpawnerUpdate(Entity* self, SpawnerNetworkCollection& s
 			const auto& name = spawnerNetwork.names.at(i);
 			const auto& toSpawn = newSet.at(i);
 
-			auto possibleSpawners = dZoneManager::Instance()->GetSpawnersByName(name + spawnerNetwork.number);
+			auto possibleSpawners = Game::zoneManager->GetSpawnersByName(name + spawnerNetwork.number);
 			if (!possibleSpawners.empty()) {
 				SpawnNow(possibleSpawners.front(), toSpawn);
 			}
@@ -469,7 +473,7 @@ std::vector<uint32_t> BaseSurvivalServer::GetRandomMobSet(SpawnerNetworkCollecti
 	if (mobSets.sets.find(spawnerNetworkCollection.mobSetName) != mobSets.sets.end()) {
 		auto mobSet = mobSets.sets.at(spawnerNetworkCollection.mobSetName);
 		if (setNumber < mobSet.size()) {
-			return mobSet.at(setNumber).at(rand() % mobSet.at(setNumber).size());
+			return mobSet.at(setNumber).at(GeneralUtils::GenerateRandomNumber<int32_t>(0, mobSet.at(setNumber).size() - 1));
 		}
 	}
 
@@ -484,7 +488,7 @@ SpawnerNetwork BaseSurvivalServer::GetRandomSpawner(SpawnerNetworkCollection& sp
 	}
 
 	if (!validSpawners.empty()) {
-		auto spawner = validSpawners.at(rand() % validSpawners.size());
+		auto spawner = validSpawners.at(GeneralUtils::GenerateRandomNumber<int32_t>(0, validSpawners.size() - 1));
 		spawner.isActive = true;
 		return spawner;
 	}
@@ -495,7 +499,7 @@ SpawnerNetwork BaseSurvivalServer::GetRandomSpawner(SpawnerNetworkCollection& sp
 void BaseSurvivalServer::ActivateSpawnerNetwork(SpawnerNetworkCollection& spawnerNetworkCollection) {
 	for (auto& spawner : spawnerNetworkCollection.networks) {
 		for (const auto& spawnerName : spawner.names) {
-			auto possibleSpawners = dZoneManager::Instance()->GetSpawnersByName(spawnerName + spawner.number);
+			auto possibleSpawners = Game::zoneManager->GetSpawnersByName(spawnerName + spawner.number);
 			if (!possibleSpawners.empty()) {
 				auto* spawnerObject = possibleSpawners.at(0);
 				spawnerObject->Activate();
@@ -509,7 +513,7 @@ void BaseSurvivalServer::UpdateMobLots(SpawnerNetworkCollection& spawnerNetworkC
 	for (auto& spawner : spawnerNetworkCollection.networks) {
 		for (auto& spawnerName : spawner.names) {
 			if (!spawnerName.empty()) {
-				auto spawnerObjects = dZoneManager::Instance()->GetSpawnersByName(spawnerName + spawner.number);
+				auto spawnerObjects = Game::zoneManager->GetSpawnersByName(spawnerName + spawner.number);
 				if (!spawnerObjects.empty()) {
 					auto splitName = GeneralUtils::SplitString(spawnerName, '_');
 					auto cleanName = splitName.size() > 1 ? splitName.at(1) : splitName.at(0);
